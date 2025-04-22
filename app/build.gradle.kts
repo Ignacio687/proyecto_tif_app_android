@@ -5,13 +5,13 @@ plugins {
 }
 
 android {
-    namespace = "ar.edu.um.programacion2.ai_assistant"
-    compileSdk = 34
+    namespace = "ar.edu.um.tif.aiAssistant"
+    compileSdk = 35
 
     defaultConfig {
-        applicationId = "ar.edu.um.programacion2.ai_assistant"
+        applicationId = "ar.edu.um.tif.aiAssistant"
         minSdk = 24
-        targetSdk = 34
+        targetSdk = 35
         versionCode = 1
         versionName = "1.0"
 
