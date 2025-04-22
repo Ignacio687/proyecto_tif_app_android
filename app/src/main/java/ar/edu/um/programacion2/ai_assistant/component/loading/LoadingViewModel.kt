@@ -1,11 +1,11 @@
-package ar.edu.um.programacion2.computech.component.loading
+package ar.edu.um.programacion2.ai_assistant.component.loading
 
 import android.app.Application
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import ar.edu.um.programacion2.computech.core.TokenManager
-import ar.edu.um.programacion2.computech.core.customException.UnauthorizedAccessException
+import ar.edu.um.programacion2.ai_assistant.core.TokenManager
+import ar.edu.um.programacion2.ai_assistant.core.customException.UnauthorizedAccessException
 import kotlinx.coroutines.launch
 
 class LoadingViewModel(application: Application) : AndroidViewModel(application) {

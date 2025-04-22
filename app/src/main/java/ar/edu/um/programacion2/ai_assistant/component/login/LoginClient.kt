@@ -1,10 +1,10 @@
-package ar.edu.um.programacion2.computech.component.login
+package ar.edu.um.programacion2.ai_assistant.component.login
 
-import ar.edu.um.programacion2.computech.core.customException.UnauthorizedAccessException
-import ar.edu.um.programacion2.computech.core.network.client.KtorClient
-import ar.edu.um.programacion2.computech.component.login.clientDataModel.Authenticate
-import ar.edu.um.programacion2.computech.component.login.clientDataModel.BadCredentials
-import ar.edu.um.programacion2.computech.component.login.clientDataModel.Token
+import ar.edu.um.programacion2.ai_assistant.core.customException.UnauthorizedAccessException
+import ar.edu.um.programacion2.ai_assistant.core.network.client.KtorClient
+import ar.edu.um.programacion2.ai_assistant.component.login.clientDataModel.Authenticate
+import ar.edu.um.programacion2.ai_assistant.component.login.clientDataModel.BadCredentials
+import ar.edu.um.programacion2.ai_assistant.component.login.clientDataModel.Token
 import io.ktor.client.call.body
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody

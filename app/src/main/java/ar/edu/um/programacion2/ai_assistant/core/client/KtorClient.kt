@@ -1,4 +1,4 @@
-package ar.edu.um.programacion2.computech.core.network.client
+package ar.edu.um.programacion2.ai_assistant.core.network.client
 
 import io.ktor.client.HttpClient
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation

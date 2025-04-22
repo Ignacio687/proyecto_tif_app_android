@@ -1,4 +1,4 @@
-package ar.edu.um.programacion2.computech.component.login.clientDataModel
+package ar.edu.um.programacion2.ai_assistant.component.login.clientDataModel
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable

@@ -1,4 +1,4 @@
-package ar.edu.um.programacion2.computech.component.loading
+package ar.edu.um.programacion2.ai_assistant.component.loading
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -13,7 +13,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import ar.edu.um.programacion2.computech.R
+import ar.edu.um.programacion2.ai_assistant.R
 import okhttp3.internal.wait
 
 @Composable
@@ -33,8 +33,8 @@ fun LoadingScreen(navigateToLogin: () -> Unit, navigateToHome: () -> Unit,
             contentAlignment = Alignment.Center
         ) {
             Image(
-                painter = painterResource(id = R.drawable.logocomputech),
-                contentDescription = "Logo Computech",
+                painter = painterResource(id = R.drawable.logoai_assistant),
+                contentDescription = "Logo ai_assistant",
                 modifier = Modifier.size(400.dp)
             )
         }

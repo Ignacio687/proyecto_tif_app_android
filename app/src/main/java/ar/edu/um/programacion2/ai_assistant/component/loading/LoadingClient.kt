@@ -1,8 +1,8 @@
-package ar.edu.um.programacion2.computech.component.loading
+package ar.edu.um.programacion2.ai_assistant.component.loading
 
-import ar.edu.um.programacion2.computech.component.home.clientDataModel.Account
-import ar.edu.um.programacion2.computech.core.customException.UnauthorizedAccessException
-import ar.edu.um.programacion2.computech.core.network.client.KtorClient
+import ar.edu.um.programacion2.ai_assistant.component.home.clientDataModel.Account
+import ar.edu.um.programacion2.ai_assistant.core.customException.UnauthorizedAccessException
+import ar.edu.um.programacion2.ai_assistant.core.network.client.KtorClient
 import io.ktor.client.call.body
 import io.ktor.client.request.get
 import io.ktor.client.request.headers

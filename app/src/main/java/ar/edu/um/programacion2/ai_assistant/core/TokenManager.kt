@@ -1,4 +1,4 @@
-package ar.edu.um.programacion2.computech.core
+package ar.edu.um.programacion2.ai_assistant.core
 
 import android.content.Context
 import android.content.SharedPreferences

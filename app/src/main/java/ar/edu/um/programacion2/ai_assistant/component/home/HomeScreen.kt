@@ -1,41 +1,26 @@
-package ar.edu.um.programacion2.computech.component.home
+package ar.edu.um.programacion2.ai_assistant.component.home
 
 import androidx.compose.runtime.Composable
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontStyle
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import ar.edu.um.programacion2.computech.R
-import ar.edu.um.programacion2.computech.component.home.clientDataModel.Device
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
-import okhttp3.internal.wait
+import ar.edu.um.programacion2.ai_assistant.R
 
 @Composable
-fun HomeScreen(navigateToDevice: (Int) -> Unit, navigateToLogin: () -> Unit,
-               homeViewModel: HomeViewModel = viewModel()) {
+fun HomeScreen(navigateToLogin: () -> Unit, homeViewModel: HomeViewModel = viewModel()) {
 
-    val devices by homeViewModel.devices.observeAsState(emptyList())
     val validLogin by homeViewModel.validLogin.observeAsState(true)
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -70,7 +55,6 @@ fun HomeScreen(navigateToDevice: (Int) -> Unit, navigateToLogin: () -> Unit,
                 UserIcon(homeViewModel, navigateToLogin)
             }
             }
-            DeviceCard(devices, navigateToDevice)
             SnackbarHost(snackbarHostState)
             }
         }
@@ -104,7 +88,7 @@ fun UserIcon(homeViewModel : HomeViewModel, navigateToLogin: () -> Unit) {
 @Composable
 fun BackgroundImage() {
     Image(
-        painter = painterResource(id = R.drawable.computech_background),
+        painter = painterResource(id = R.drawable.ai_assistant_background),
         contentDescription = "Background",
         modifier = Modifier
             .fillMaxSize()
@@ -119,63 +103,6 @@ fun BackgroundImage() {
 }
 
 @Composable
-fun DeviceCard(devices: List<Device>, navigateToDevice: (Int) -> Unit) {
-    Card(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 32.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0x8B121212)),
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp)
-        ) {
-            Text(
-                text = "DISPOSITIVOS",
-                color = Color(0xFFE7E5E2),
-                fontSize = 26.sp,
-                fontStyle = FontStyle.Italic,
-                modifier = Modifier
-                    .padding(bottom = 8.dp)
-                    .align(Alignment.CenterHorizontally),
-                fontWeight = FontWeight.Bold
-            )
-            Spacer(modifier = Modifier.height(18.dp))
-            LazyColumn(
-                modifier = Modifier.fillMaxSize()
-            ) {
-                items(devices) { device ->
-                    DeviceItem(device, navigateToDevice)
-                }
-            }
-        }
-    }
-}
-
-@Composable
 fun SnackbarHost(snackbarHostState: SnackbarHostState) {
     SnackbarHost(hostState = snackbarHostState)
-}
-
-@Composable
-fun DeviceItem(device: Device, navigateToDevice: (Int) -> Unit) {
-    Button(
-        onClick = { navigateToDevice(device.id) },
-        colors = ButtonDefaults.buttonColors(containerColor = Color(0x8B121212)),
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp)
-            .border(1.dp, color = Color(0xFF555151), shape = RoundedCornerShape(35.dp))
-    ) {
-        Column(modifier = Modifier.fillMaxWidth()) {
-            Text(text = device.name, fontSize = 20.sp, color = Color.White)
-            Text(
-                text = "\$${device.basePrice}",
-                fontSize = 20.sp,
-                color = Color.White,
-                modifier = Modifier.align(Alignment.End)
-            )
-        }
-    }
 }

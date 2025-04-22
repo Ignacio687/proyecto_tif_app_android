@@ -1,4 +1,4 @@
-package ar.edu.um.programacion2.computech.component.login
+package ar.edu.um.programacion2.ai_assistant.component.login
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -22,7 +22,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import ar.edu.um.programacion2.computech.R
+import ar.edu.um.programacion2.ai_assistant.R
 
 @Composable
 fun LoginScreen(navigateToHome: () -> Unit, loginViewModel: LoginViewModel = viewModel()) {
@@ -35,8 +35,8 @@ fun LoginScreen(navigateToHome: () -> Unit, loginViewModel: LoginViewModel = vie
         ) {
             Spacer(modifier = Modifier.weight(1f))
             Image(
-                painter = painterResource(id = R.drawable.logocomputech),
-                contentDescription = "Logo Computech",
+                painter = painterResource(id = R.drawable.logoai_assistant),
+                contentDescription = "Logo ai_assistant",
                 modifier = Modifier.size(400.dp)
             )
             UserNameField(loginViewModel)

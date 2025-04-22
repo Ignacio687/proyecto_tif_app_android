@@ -1,14 +1,12 @@
-package ar.edu.um.programacion2.computech.core.navigation
+package ar.edu.um.programacion2.ai_assistant.core.navigation
 
 import androidx.compose.runtime.Composable
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import androidx.navigation.toRoute
-import ar.edu.um.programacion2.computech.component.device.DeviceScreen
-import ar.edu.um.programacion2.computech.component.home.HomeScreen
-import ar.edu.um.programacion2.computech.component.loading.LoadingScreen
-import ar.edu.um.programacion2.computech.component.login.LoginScreen
+import ar.edu.um.programacion2.ai_assistant.component.home.HomeScreen
+import ar.edu.um.programacion2.ai_assistant.component.loading.LoadingScreen
+import ar.edu.um.programacion2.ai_assistant.component.login.LoginScreen
 
 @Composable
 fun NavigationWrapper() {
@@ -37,7 +35,6 @@ fun NavigationWrapper() {
 
         composable<Home> {
             HomeScreen(
-                navigateToDevice = { id -> navController.navigate(Device(id)) },
                 navigateToLogin = { navController.navigate(Login) }
             )
         }

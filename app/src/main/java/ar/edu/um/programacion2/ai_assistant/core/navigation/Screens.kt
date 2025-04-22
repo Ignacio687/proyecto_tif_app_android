@@ -1,4 +1,4 @@
-package ar.edu.um.programacion2.computech.core.navigation
+package ar.edu.um.programacion2.ai_assistant.core.navigation
 
 import kotlinx.serialization.Serializable
 

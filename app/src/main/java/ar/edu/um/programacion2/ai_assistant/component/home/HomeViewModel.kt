@@ -1,4 +1,4 @@
-package ar.edu.um.programacion2.computech.component.home
+package ar.edu.um.programacion2.ai_assistant.component.home
 
 import android.app.Application
 import android.util.Log
@@ -6,9 +6,9 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.viewModelScope
-import ar.edu.um.programacion2.computech.core.TokenManager
-import ar.edu.um.programacion2.computech.core.customException.UnauthorizedAccessException
-import ar.edu.um.programacion2.computech.component.home.clientDataModel.Device
+import ar.edu.um.programacion2.ai_assistant.core.TokenManager
+import ar.edu.um.programacion2.ai_assistant.core.customException.UnauthorizedAccessException
+import ar.edu.um.programacion2.ai_assistant.component.home.clientDataModel.Device
 import kotlinx.coroutines.launch
 
 class HomeViewModel(application: Application) : AndroidViewModel(application) {
