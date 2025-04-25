@@ -1,3 +1,20 @@
+import java.util.Properties
+
+//Temporal solution to Porcupine Api Key
+val secretsProps = rootProject.file("secrets.properties")
+val porcupineApiKey: String by lazy {
+    if (secretsProps.exists()) {
+        Properties().apply { load(secretsProps.inputStream()) }
+            .getProperty("PORCUPINE_ACCESS_KEY") ?: run {
+                println("Warning: PORCUPINE_ACCESS_KEY not found in secrets.properties")
+                ""
+            }
+    } else {
+        println("Warning: secrets.properties file not found.")
+        ""
+    }
+}
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.jetbrains.kotlin.android)
@@ -19,6 +36,9 @@ android {
         vectorDrawables {
             useSupportLibrary = true
         }
+        
+        //Temporal solution to Porcupine Api Key
+        buildConfigField("String", "PORCUPINE_API_KEY", "\"$porcupineApiKey\"")
     }
 
     buildTypes {
@@ -39,6 +59,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
     composeOptions {
         kotlinCompilerExtensionVersion = "1.5.1"
@@ -67,6 +88,8 @@ dependencies {
     implementation(libs.ktor.client.core)
     implementation(libs.ktor.client.negotiation)
     implementation(libs.kotlin.serialization)
+    implementation(libs.porcupine.android)
+    implementation(libs.androidx.security.crypto)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -75,3 +98,4 @@ dependencies {
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
 }
+

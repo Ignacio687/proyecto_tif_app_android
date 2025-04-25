@@ -11,7 +11,7 @@ import ar.edu.um.tif.aiAssistant.component.login.LoginScreen
 @Composable
 fun NavigationWrapper() {
     val navController = rememberNavController()
-    NavHost(navController = navController, startDestination = Loading) {
+    NavHost(navController = navController, startDestination = Home) {
 
         composable<Loading> {
             LoadingScreen(

@@ -22,6 +22,7 @@ import ar.edu.um.tif.aiAssistant.R
 fun HomeScreen(navigateToLogin: () -> Unit, homeViewModel: HomeViewModel = viewModel()) {
 
     val validLogin by homeViewModel.validLogin.observeAsState(true)
+    val hotwordDetected by homeViewModel.hotwordHeard.observeAsState(false)
     val snackbarHostState = remember { SnackbarHostState() }
 
     if (!validLogin) {
@@ -29,33 +30,38 @@ fun HomeScreen(navigateToLogin: () -> Unit, homeViewModel: HomeViewModel = viewM
     }
 
     MaterialTheme(colorScheme = darkColorScheme()) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-        ) {
+        Box(modifier = Modifier.fillMaxSize()) {
             BackgroundImage()
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color(0x80121212)), // Fondo semitransparente para el contenido
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Row(
+            Column(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(end = 16.dp, top = 35.dp)
+                    .fillMaxSize()
+                    .background(Color(0x80121212)),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(end = 2.dp, top = 1.dp, start = 16.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween
+                        .padding(end = 16.dp, top = 35.dp)
                 ) {
-                MenuIcon()
-                UserIcon(homeViewModel, navigateToLogin)
-            }
-            }
-            SnackbarHost(snackbarHostState)
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(end = 2.dp, top = 1.dp, start = 16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        MenuIcon()
+                        UserIcon(homeViewModel, navigateToLogin)
+                    }
+                }
+                // Display reactive message when the hotword is detected
+                if (hotwordDetected) {
+                    Text(
+                        text = "Hotword detected",
+                        color = Color.Green,
+                        modifier = Modifier.padding(16.dp)
+                    )
+                }
+                SnackbarHost(snackbarHostState)
             }
         }
     }
