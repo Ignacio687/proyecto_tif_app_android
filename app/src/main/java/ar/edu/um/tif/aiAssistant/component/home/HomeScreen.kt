@@ -8,21 +8,27 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import ar.edu.um.tif.aiAssistant.R
+import ai.picovoice.porcupine.Porcupine
+import ai.picovoice.porcupine.PorcupineManager
+import ai.picovoice.porcupine.PorcupineManagerCallback
 
 @Composable
 fun HomeScreen(navigateToLogin: () -> Unit, homeViewModel: HomeViewModel = viewModel()) {
 
     val validLogin by homeViewModel.validLogin.observeAsState(true)
-    val hotwordDetected by homeViewModel.hotwordHeard.observeAsState(false)
     val snackbarHostState = remember { SnackbarHostState() }
 
     if (!validLogin) {
@@ -52,14 +58,6 @@ fun HomeScreen(navigateToLogin: () -> Unit, homeViewModel: HomeViewModel = viewM
                         MenuIcon()
                         UserIcon(homeViewModel, navigateToLogin)
                     }
-                }
-                // Display reactive message when the hotword is detected
-                if (hotwordDetected) {
-                    Text(
-                        text = "Hotword detected",
-                        color = Color.Green,
-                        modifier = Modifier.padding(16.dp)
-                    )
                 }
                 SnackbarHost(snackbarHostState)
             }

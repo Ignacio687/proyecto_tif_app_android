@@ -10,3 +10,6 @@ object Home
 
 @Serializable
 object Loading
+
+@Serializable
+object Assistant

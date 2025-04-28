@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import ar.edu.um.tif.aiAssistant.component.assistant.AssistantScreen
 import ar.edu.um.tif.aiAssistant.component.home.HomeScreen
 import ar.edu.um.tif.aiAssistant.component.loading.LoadingScreen
 import ar.edu.um.tif.aiAssistant.component.login.LoginScreen
@@ -11,7 +12,7 @@ import ar.edu.um.tif.aiAssistant.component.login.LoginScreen
 @Composable
 fun NavigationWrapper() {
     val navController = rememberNavController()
-    NavHost(navController = navController, startDestination = Home) {
+    NavHost(navController = navController, startDestination = Assistant) {
 
         composable<Loading> {
             LoadingScreen(
@@ -37,6 +38,12 @@ fun NavigationWrapper() {
             HomeScreen(
                 navigateToLogin = { navController.navigate(Login) }
             )
+        }
+
+        composable<Assistant> {
+             AssistantScreen(
+                 navigateToLogin = { navController.navigate(Login) }
+             )
         }
     }
 }
