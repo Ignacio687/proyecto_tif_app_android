@@ -1,17 +1,7 @@
-import java.util.Properties
 
-//Temporal solution to Porcupine Api Key
-val secretsProps = rootProject.file("secrets.properties")
-val porcupineApiKey: String by lazy {
-    if (secretsProps.exists()) {
-        Properties().apply { load(secretsProps.inputStream()) }
-            .getProperty("PORCUPINE_ACCESS_KEY") ?: run {
-                println("Warning: PORCUPINE_ACCESS_KEY not found in secrets.properties")
-                ""
-            }
-    } else {
-        println("Warning: secrets.properties file not found.")
-        ""
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
     }
 }
 
@@ -36,9 +26,6 @@ android {
         vectorDrawables {
             useSupportLibrary = true
         }
-        
-        //Temporal solution to Porcupine Api Key
-        buildConfigField("String", "PORCUPINE_API_KEY", "\"$porcupineApiKey\"")
     }
 
     buildTypes {
@@ -51,11 +38,11 @@ android {
         }
     }
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_1_8
-        targetCompatibility = JavaVersion.VERSION_1_8
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
     kotlinOptions {
-        jvmTarget = "1.8"
+        jvmTarget = "17"
     }
     buildFeatures {
         compose = true
@@ -88,7 +75,10 @@ dependencies {
     implementation(libs.ktor.client.core)
     implementation(libs.ktor.client.negotiation)
     implementation(libs.kotlin.serialization)
-    implementation(libs.porcupine.android)
+    implementation(libs.aimybox.core)
+    implementation(libs.aimybox.components)
+    implementation(libs.google.platform.speechkit)
+    implementation(libs.aimybox.dummy.api)
     implementation(libs.androidx.security.crypto)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
@@ -98,4 +88,3 @@ dependencies {
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
 }
-

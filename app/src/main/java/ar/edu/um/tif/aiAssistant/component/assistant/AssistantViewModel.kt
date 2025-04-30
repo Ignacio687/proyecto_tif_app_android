@@ -5,26 +5,34 @@ import android.app.Application
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.os.Build
 import androidx.activity.result.ActivityResultLauncher
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.AndroidViewModel
-import ar.edu.um.tif.aiAssistant.core.voice.PorcupineService
+import ar.edu.um.tif.aiAssistant.core.voice.AimyboxService
+import com.justai.aimybox.Aimybox
+import ar.edu.um.tif.aiAssistant.core.voice.AimyboxApplication
 
 class AssistantViewModel(application: Application) : AndroidViewModel(application) {
+    val aimybox: Aimybox = (application as AimyboxApplication).aimybox
+
     var isListening by mutableStateOf(false)
         private set
+
     var errorMessage by mutableStateOf<String?>(null)
         private set
 
-    // Permissions required
-    private val permissions = listOf(
-        Manifest.permission.RECORD_AUDIO
-    ) + if (android.os.Build.VERSION.SDK_INT >= 33)
-        listOf(Manifest.permission.POST_NOTIFICATIONS)
-    else emptyList()
+    private val permissions = mutableListOf(Manifest.permission.RECORD_AUDIO).apply {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            add(Manifest.permission.POST_NOTIFICATIONS)
+        }
+        if (Build.VERSION.SDK_INT >= 34) {
+            add(Manifest.permission.FOREGROUND_SERVICE_MICROPHONE)
+        }
+    }
 
     fun hasAllPermissions(context: Context): Boolean =
         permissions.all { perm ->
@@ -39,24 +47,24 @@ class AssistantViewModel(application: Application) : AndroidViewModel(applicatio
         if (grantResults.values.all { it }) {
             startService(context)
         } else {
-            onError("Microphone/notification permissions are required for this feature")
+            onError("Microphone/notification permissions are required")
         }
     }
 
     fun startService(context: Context) {
         errorMessage = null
-        val intent = Intent(context, PorcupineService::class.java)
-        ContextCompat.startForegroundService(context, intent)
+        ContextCompat.startForegroundService(
+            context, Intent(context, AimyboxService::class.java)
+        )
         isListening = true
     }
 
     fun stopService(context: Context) {
-        val intent = Intent(context, PorcupineService::class.java)
-        context.stopService(intent)
+        context.stopService(Intent(context, AimyboxService::class.java))
         isListening = false
     }
 
-    fun onError(msg: String) {
+    private fun onError(msg: String) {
         errorMessage = msg
         isListening = false
     }

@@ -5,9 +5,7 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
-import ar.edu.um.tif.aiAssistant.BuildConfig
 import ar.edu.um.tif.aiAssistant.core.TokenManager
-import ar.edu.um.tif.aiAssistant.core.voice.PorcupineAPIKeyManager
 
 class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private val _token = MutableLiveData<String?>()
