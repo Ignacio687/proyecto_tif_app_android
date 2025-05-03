@@ -56,6 +56,11 @@ android {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
     }
+    configurations.all {
+        resolutionStrategy {
+            force("com.alphacephei:vosk-android:0.3.47")
+        }
+    }
 }
 
 dependencies {
@@ -77,8 +82,12 @@ dependencies {
     implementation(libs.kotlin.serialization)
     implementation(libs.aimybox.core)
     implementation(libs.aimybox.components)
-    implementation(libs.google.platform.speechkit)
+    implementation(libs.aimybox.google.platform.speechkit)
     implementation(libs.aimybox.dummy.api)
+    implementation(libs.aimybox.kaldi.speechkit) {
+        exclude(group = "net.java.dev.jna", module = "jna")
+    }
+    implementation(libs.jna)
     implementation(libs.androidx.security.crypto)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

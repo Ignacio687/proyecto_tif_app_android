@@ -20,10 +20,6 @@
         android:theme="@style/Theme.AI_Assistant"
         android:name=".core.voice.AimyboxApplication"
         tools:targetApi="33">
-        <service
-            android:name=".core.voice.AimyboxService"
-            android:exported="false"
-            android:foregroundServiceType="microphone" />
         <activity
             android:name=".MainActivity"
             android:exported="true"
