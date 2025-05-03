@@ -6,6 +6,7 @@ import com.justai.aimybox.Aimybox
 import com.justai.aimybox.assistant.api.DummyDialogApi
 import com.justai.aimybox.components.AimyboxProvider
 import com.justai.aimybox.core.Config
+import com.justai.aimybox.core.Config.RecognitionBehavior
 import com.justai.aimybox.speechkit.google.platform.GooglePlatformSpeechToText
 import com.justai.aimybox.speechkit.google.platform.GooglePlatformTextToSpeech
 import com.justai.aimybox.speechkit.kaldi.KaldiAssets
@@ -20,17 +21,17 @@ class AimyboxApplication : Application(), AimyboxProvider {
         }
     }
 
-//    override fun onCreate() {
-//        super.onCreate()
-//        System.setProperty("jna.nosys", "true")
-//    }
+    override fun onCreate() {
+        super.onCreate()
+        System.setProperty("jna.nosys", "true")
+    }
 
     override val aimybox by lazy { createAimybox(this) }
 
     private fun createAimybox(context: Context): Aimybox {
         val locale = Locale("es", "ES")
-//        val assets = KaldiAssets.fromApkAssets(this, "vosk-model-small-es-0.42")
-//        val voiceTrigger = KaldiVoiceTrigger(assets, listOf("alexa"))
+        val assets = KaldiAssets.fromApkAssets(this, "vosk-model-small-es-0.42")
+        val voiceTrigger = KaldiVoiceTrigger(assets, listOf("alexa", "jarvis"))
 
         val textToSpeech = GooglePlatformTextToSpeech(context, locale)
         val speechToText = GooglePlatformSpeechToText(context, locale)
@@ -38,7 +39,8 @@ class AimyboxApplication : Application(), AimyboxProvider {
         val dialogApi = DummyDialogApi()
 
         val aimyboxConfig = Config.create(speechToText, textToSpeech, dialogApi) {
-//            this.voiceTrigger = voiceTrigger
+            this.voiceTrigger = voiceTrigger
+            this.recognitionBehavior = RecognitionBehavior.ALLOW_OVERRIDE
         }
         return Aimybox(aimyboxConfig, context)
     }
