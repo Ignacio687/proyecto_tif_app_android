@@ -1,7 +1,12 @@
 package ar.edu.um.tif.aiAssistant.component.assistant
 
 import android.Manifest
+import android.app.Activity
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
+import android.provider.Settings
+import androidx.activity.compose.LocalActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -19,6 +24,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
@@ -42,67 +48,36 @@ data class AssistantUiButton(val text: String, val onClick: () -> Unit)
 @Composable
 fun AssistantScreen(navigateToLogin: () -> Unit) {
     val context = LocalContext.current
-    val aimybox = (context.applicationContext as AimyboxApplication).aimybox
+    // Find the activity to check rationale. Fallback might be needed if not directly available.
+    val activity = LocalActivity.current
 
-    val viewModel: AssistantViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
-        factory = object : ViewModelProvider.Factory {
-            override fun <T : ViewModel> create(modelClass: Class<T>): T {
-                if (modelClass.isAssignableFrom(AssistantViewModel::class.java)) {
-                    @Suppress("UNCHECKED_CAST")
-                    return AssistantViewModel(aimybox) as T
-                }
-                throw IllegalArgumentException("Unknown ViewModel class")
-            }
-        }
-    )
-
-    // Map Aimybox widgets to your own UI widgets
-    val aimyboxWidgets by viewModel.widgets.observeAsState(emptyList())
-    val aimyboxState by viewModel.aimyboxState.observeAsState()
-    val isListening = aimyboxState?.name == "LISTENING"
-
-    // Transform aimybox widgets to your UI widgets
-    val uiWidgets = remember(aimyboxWidgets) {
-        aimyboxWidgets.mapNotNull {
-            when (it::class.simpleName) {
-                "ResponseWidget" -> AssistantUiResponse(
-                    it.javaClass.getMethod("getText").invoke(it) as String
-                )
-
-                "RequestWidget" -> AssistantUiRequest(
-                    it.javaClass.getMethod("getText").invoke(it) as String
-                )
-
-                "ButtonsWidget" -> {
-                    val buttons = it.javaClass.getMethod("getButtons").invoke(it) as List<*>
-                    AssistantUiButtons(
-                        buttons.map { btn ->
-                            val text = btn?.javaClass?.getMethod("getText")?.invoke(btn) as String
-                            AssistantUiButton(text) {
-                                viewModel.onButtonClick(btn as Button)
-                            }
-                        }
-                    )
-                }
-
-                "ImageWidget" -> AssistantUiImage(
-                    it.javaClass.getMethod("getUrl").invoke(it) as String
-                )
-
-                "RecognitionWidget" -> AssistantUiRecognition(
-                    it.javaClass.getMethod("getText").invoke(it) as String
-                )
-
-                else -> null
-            }
-        }
+    var hasPermission by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) ==
+                    PackageManager.PERMISSION_GRANTED
+        )
     }
+    // Flag to track if rationale should be shown or if settings need to be opened
+    var showRationaleOrOpenSettings by remember { mutableStateOf(true) }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { isGranted ->
-        if (isGranted) {
-            viewModel.onAssistantButtonClick()
+        hasPermission = isGranted
+        if (!isGranted) {
+            // Check if we should show rationale next time or direct to settings
+            showRationaleOrOpenSettings = activity?.shouldShowRequestPermissionRationale(
+                Manifest.permission.RECORD_AUDIO) != false
+        }
+    }
+
+    // Request permission on initial composition if not already granted
+    LaunchedEffect(Unit) {
+        if (!hasPermission) {
+            // Check rationale status *before* the first launch as well
+            showRationaleOrOpenSettings = activity?.shouldShowRequestPermissionRationale(
+                Manifest.permission.RECORD_AUDIO) != false
+            permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
         }
     }
 
@@ -111,31 +86,126 @@ fun AssistantScreen(navigateToLogin: () -> Unit) {
             .fillMaxSize()
             .background(Color(0xFF101010))
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(bottom = 80.dp) // leave space for FAB
-        ) {
-            AssistantWidgetList(
-                widgets = uiWidgets
-            )
-        }
-        AssistantMicToggleButton(
-            isListening = isListening,
-            onClick = {
-                val permission = Manifest.permission.RECORD_AUDIO
-                if (ContextCompat.checkSelfPermission(context, permission) ==
-                    PackageManager.PERMISSION_GRANTED
-                ) {
-                    viewModel.onAssistantButtonClick()
-                } else {
-                    permissionLauncher.launch(permission)
+        if (hasPermission) {
+            // --- Main Content: Only shown when permission is granted ---
+            val aimybox = (context.applicationContext as AimyboxApplication).aimybox
+            val viewModel: AssistantViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
+                factory = object : ViewModelProvider.Factory {
+                    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                        if (modelClass.isAssignableFrom(AssistantViewModel::class.java)) {
+                            @Suppress("UNCHECKED_CAST")
+                            return AssistantViewModel(aimybox) as T
+                        }
+                        throw IllegalArgumentException("Unknown ViewModel class")
+                    }
                 }
-            },
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(bottom = 24.dp)
-        )
+            )
+
+            val aimyboxWidgets by viewModel.widgets.observeAsState(emptyList())
+            val aimyboxState by viewModel.aimyboxState.observeAsState()
+            val isListening = aimyboxState?.name == "LISTENING"
+
+            val uiWidgets = remember(aimyboxWidgets) {
+                aimyboxWidgets.mapNotNull {
+                    when (it::class.simpleName) {
+                        "ResponseWidget" -> AssistantUiResponse(
+                            it.javaClass.getMethod("getText").invoke(it) as String
+                        )
+                        "RequestWidget" -> AssistantUiRequest(
+                            it.javaClass.getMethod("getText").invoke(it) as String
+                        )
+                        "ButtonsWidget" -> {
+                            val buttons = it.javaClass.getMethod("getButtons").invoke(it) as List<*>
+                            AssistantUiButtons(
+                                buttons.map { btn ->
+                                    val text = btn?.javaClass?.getMethod("getText")?.invoke(btn) as String
+                                    AssistantUiButton(text) {
+                                        viewModel.onButtonClick(btn as Button)
+                                    }
+                                }
+                            )
+                        }
+                        "ImageWidget" -> AssistantUiImage(
+                            it.javaClass.getMethod("getUrl").invoke(it) as String
+                        )
+                        "RecognitionWidget" -> AssistantUiRecognition(
+                            it.javaClass.getMethod("getText").invoke(it) as String
+                        )
+                        else -> null
+                    }
+                }
+            }
+
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(bottom = 80.dp) // leave space for FAB
+            ) {
+                AssistantWidgetList(
+                    widgets = uiWidgets
+                )
+            }
+            AssistantMicToggleButton(
+                isListening = isListening,
+                onClick = {
+                    // Permission is already granted here
+                    viewModel.onAssistantButtonClick()
+                },
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 24.dp)
+            )
+
+        } else {
+            // --- Permission Required State ---
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                // Determine the correct text and button based on rationale/permanent denial
+                val (explanationText, buttonText, buttonAction) = if (showRationaleOrOpenSettings) {
+                    // Need to request again or show rationale
+                    Triple(
+                        "Microphone permission is required to use the voice assistant.",
+                        "Grant Permission",
+                        { permissionLauncher.launch(Manifest.permission.RECORD_AUDIO) }
+                    )
+                } else {
+                    // Permanently denied, direct to settings
+                    Triple(
+                        "Microphone permission has been permanently denied. " +
+                                "Please enable it in app settings to use the voice assistant.",
+                        "Open Settings",
+                        {
+                            val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                            val uri = Uri.fromParts("package", context.packageName, null)
+                            intent.data = uri
+                            context.startActivity(intent)
+                        }
+                    )
+                }
+
+                Text(
+                    text = explanationText,
+                    color = Color.White,
+                    fontSize = 18.sp,
+                    textAlign = TextAlign.Center
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                Button(onClick = buttonAction) {
+                    Text(buttonText)
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "The app cannot function without this permission.",
+                    color = Color.Gray,
+                    textAlign = TextAlign.Center
+                )
+            }
+        }
     }
 }
 
@@ -234,7 +304,7 @@ private fun AssistantMicToggleButton(
     ) {
         if (isListening) {
             Icon(painterResource(id = drawable.assistant_mic_off_icon_24),
-                    contentDescription = "Stop", tint = Color.White)
+                contentDescription = "Stop", tint = Color.White)
         } else {
             Icon(painterResource(id = drawable.assistant_mic_icon_24),
                 contentDescription = "Start", tint = Color.White)

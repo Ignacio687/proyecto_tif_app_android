@@ -14,7 +14,8 @@ runtimeLivedataVersion = "1.7.8"
 ktor = "2.3.11"
 securityCrypto = "1.1.0-alpha06"
 aimybox = "0.17.7-alpha.1"
-jna = "5.8.0"
+jna = "5.13.0"
+vosk = "0.3.47"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -45,6 +46,7 @@ aimybox-google-platform-speechkit = { group = "com.just-ai.aimybox", name = "goo
 aimybox-dummy-api = { group = "com.just-ai.aimybox", name = "dummy-api", version.ref = "aimybox" }
 aimybox-kaldi-speechkit = { group = "com.just-ai.aimybox", name = "kaldi-speechkit", version.ref = "aimybox" }
 jna = { group = "net.java.dev.jna", name = "jna", version.ref = "jna" }
+vosk-android = { group = "com.alphacephei", name = "vosk-android", version.ref = "vosk" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

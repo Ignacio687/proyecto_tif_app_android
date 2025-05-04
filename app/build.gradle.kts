@@ -1,3 +1,4 @@
+import kotlin.collections.plusAssign
 
 java {
     toolchain {
@@ -25,6 +26,9 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
             useSupportLibrary = true
+        }
+        ndk {
+            abiFilters += listOf("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
         }
     }
 
@@ -55,10 +59,16 @@ android {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
+        jniLibs {
+            pickFirsts += "lib/arm64-v8a/libjnidispatch.so"
+            pickFirsts += "lib/armeabi-v7a/libjnidispatch.so"
+            pickFirsts += "lib/x86/libjnidispatch.so"
+            pickFirsts += "lib/x86_64/libjnidispatch.so"
+        }
     }
     configurations.all {
         resolutionStrategy {
-            force("com.alphacephei:vosk-android:0.3.47")
+            force(libs.vosk.android)
         }
     }
 }
@@ -87,7 +97,11 @@ dependencies {
     implementation(libs.aimybox.kaldi.speechkit) {
         exclude(group = "net.java.dev.jna", module = "jna")
     }
-    implementation(libs.jna)
+    implementation(libs.vosk.android)
+//    {
+//        exclude(group = "net.java.dev.jna", module = "jna")
+//    }
+//    implementation("net.java.dev.jna:jna:5.13.0@aar")
     implementation(libs.androidx.security.crypto)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
