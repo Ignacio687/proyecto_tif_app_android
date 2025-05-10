@@ -36,7 +36,7 @@ class AimyboxApplication : Application(), AimyboxProvider {
         val textToSpeech = GooglePlatformTextToSpeech(context, locale)
         val speechToText = GooglePlatformSpeechToText(context, locale)
 
-        val dialogApi = DummyDialogApi()
+        val dialogApi = LLMDialogAPI()
 
         val aimyboxConfig = Config.create(speechToText, textToSpeech, dialogApi) {
             this.voiceTrigger = voiceTrigger
