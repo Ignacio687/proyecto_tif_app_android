@@ -24,13 +24,17 @@ class LLMDialogAPI(
         val response = KtorClient.httpClient.post("$baseUrl/assistant") {
             headers {
                 append("Content-Type", "application/json")
+                append("Authorization", "Bearer ")
             }
             setBody(request)
         }.body<ServerResponse>()
 
+        val question = response.appParams?.firstOrNull()?.question ?: false
+
         return LLMResponse(
             query = request.query,
-            replies = listOf(TextReply(null, response.serverReply))
+            replies = listOf(TextReply(null, response.serverReply)),
+            question = question
         )
     }
 }

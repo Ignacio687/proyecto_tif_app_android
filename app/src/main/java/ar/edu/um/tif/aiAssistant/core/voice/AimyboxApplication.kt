@@ -31,7 +31,7 @@ class AimyboxApplication : Application(), AimyboxProvider {
     private fun createAimybox(context: Context): Aimybox {
         val locale = Locale("es", "ES")
         val assets = KaldiAssets.fromApkAssets(this, "vosk-model-small-es-0.42")
-        val voiceTrigger = KaldiVoiceTrigger(assets, listOf("alexa", "jarvis"))
+        val voiceTrigger = KaldiVoiceTrigger(assets, listOf("cortana"))
 
         val textToSpeech = GooglePlatformTextToSpeech(context, locale)
         val speechToText = GooglePlatformSpeechToText(context, locale)

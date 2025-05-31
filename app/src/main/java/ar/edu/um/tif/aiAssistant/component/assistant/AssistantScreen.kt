@@ -33,6 +33,8 @@ import androidx.lifecycle.ViewModelProvider
 import ar.edu.um.tif.aiAssistant.core.voice.AimyboxApplication
 import com.justai.aimybox.components.widget.Button
 import ar.edu.um.tif.aiAssistant.R.drawable
+import androidx.compose.foundation.lazy.rememberLazyListState
+import kotlinx.coroutines.launch
 
 // --- UI Model ---
 sealed interface AssistantUiWidget
@@ -212,7 +214,20 @@ fun AssistantScreen(navigateToLogin: () -> Unit) {
 // --- Widget List ---
 @Composable
 private fun AssistantWidgetList(widgets: List<AssistantUiWidget>) {
+    val listState = rememberLazyListState()
+    val coroutineScope = rememberCoroutineScope()
+
+    // Scroll to the last item when widgets change
+    LaunchedEffect(widgets.size) {
+        if (widgets.isNotEmpty()) {
+            coroutineScope.launch {
+                listState.animateScrollToItem(widgets.lastIndex)
+            }
+        }
+    }
+
     LazyColumn(
+        state = listState,
         modifier = Modifier
             .fillMaxWidth()
             .padding(top = 16.dp, start = 16.dp, end = 16.dp)
