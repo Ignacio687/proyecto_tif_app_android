@@ -3,16 +3,16 @@ package ar.edu.um.tif.aiAssistant.core.voice
 import android.app.Application
 import android.content.Context
 import com.justai.aimybox.Aimybox
-import com.justai.aimybox.assistant.api.DummyDialogApi
 import com.justai.aimybox.components.AimyboxProvider
 import com.justai.aimybox.core.Config
-import com.justai.aimybox.core.Config.RecognitionBehavior
 import com.justai.aimybox.speechkit.google.platform.GooglePlatformSpeechToText
 import com.justai.aimybox.speechkit.google.platform.GooglePlatformTextToSpeech
 import com.justai.aimybox.speechkit.kaldi.KaldiAssets
 import com.justai.aimybox.speechkit.kaldi.KaldiVoiceTrigger
+import dagger.hilt.android.HiltAndroidApp
 import java.util.Locale
 
+@HiltAndroidApp
 class AimyboxApplication : Application(), AimyboxProvider {
 
     companion object {
@@ -30,7 +30,7 @@ class AimyboxApplication : Application(), AimyboxProvider {
 
     private fun createAimybox(context: Context): Aimybox {
         val locale = Locale("es", "ES")
-        val assets = KaldiAssets.fromApkAssets(this, "vosk-model-small-es-0.42")
+        val assets = KaldiAssets.Companion.fromApkAssets(this, "vosk-model-small-es-0.42")
         val voiceTrigger = KaldiVoiceTrigger(assets, listOf("cortana"))
 
         val textToSpeech = GooglePlatformTextToSpeech(context, locale)
@@ -38,9 +38,9 @@ class AimyboxApplication : Application(), AimyboxProvider {
 
         val dialogApi = LLMDialogAPI()
 
-        val aimyboxConfig = Config.create(speechToText, textToSpeech, dialogApi) {
+        val aimyboxConfig = Config.Companion.create(speechToText, textToSpeech, dialogApi) {
             this.voiceTrigger = voiceTrigger
-            this.recognitionBehavior = RecognitionBehavior.ALLOW_OVERRIDE
+            this.recognitionBehavior = Config.RecognitionBehavior.ALLOW_OVERRIDE
         }
         return Aimybox(aimyboxConfig, context)
     }

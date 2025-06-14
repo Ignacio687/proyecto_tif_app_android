@@ -1,105 +1,121 @@
 package ar.edu.um.tif.aiAssistant.component.home
 
-import androidx.compose.runtime.Composable
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.livedata.observeAsState
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.blur
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
-import ar.edu.um.tif.aiAssistant.R
+import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
+import ar.edu.um.tif.aiAssistant.ui.theme.AI_AssistantTheme
 
 @Composable
-fun HomeScreen(navigateToLogin: () -> Unit, homeViewModel: HomeViewModel = viewModel()) {
+fun HomeScreen(
+    viewModel: HomeViewModel = hiltViewModel(),
+    navigateToLogin: () -> Unit,
+    navigateToAssistant: () -> Unit
+) {
+    val uiState by viewModel.uiState.collectAsState()
 
-    val validLogin by homeViewModel.validLogin.observeAsState(true)
-    val snackbarHostState = remember { SnackbarHostState() }
-
-    if (!validLogin) {
-        homeViewModel.logout(navigateToLogin)
+    // Handle logout
+    LaunchedEffect(uiState.isLoggedOut) {
+        if (uiState.isLoggedOut) {
+            navigateToLogin()
+        }
     }
 
-    MaterialTheme(colorScheme = darkColorScheme()) {
-        Box(modifier = Modifier.fillMaxSize()) {
-            BackgroundImage()
-            Column(
+    Surface(
+        modifier = Modifier.fillMaxSize(),
+        color = MaterialTheme.colorScheme.background
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            // Welcome header
+            Text(
+                text = "Welcome to IACompanion",
+                fontSize = 24.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(vertical = 32.dp)
+            )
+
+            // User info
+            Card(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color(0x80121212)),
-                horizontalAlignment = Alignment.CenterHorizontally
+                    .fillMaxWidth()
+                    .padding(vertical = 16.dp),
+                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
             ) {
-                Row(
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(end = 16.dp, top = 35.dp)
+                        .padding(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(end = 2.dp, top = 1.dp, start = 16.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        MenuIcon()
-                        UserIcon(homeViewModel, navigateToLogin)
-                    }
+                    Text(
+                        text = "Welcome back,",
+                        fontSize = 18.sp,
+                        textAlign = TextAlign.Center
+                    )
+
+                    Text(
+                        text = uiState.userName ?: "User",
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(vertical = 8.dp)
+                    )
+
+                    Text(
+                        text = uiState.userEmail ?: "",
+                        fontSize = 16.sp,
+                        textAlign = TextAlign.Center,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                    )
                 }
-                SnackbarHost(snackbarHostState)
+            }
+
+            Spacer(modifier = Modifier.height(32.dp))
+
+            // Chat with AI button
+            Button(
+                onClick = navigateToAssistant,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp)
+            ) {
+                Text("Chat with Assistant", fontSize = 16.sp)
+            }
+
+            Spacer(modifier = Modifier.weight(1f))
+
+            // Logout button
+            OutlinedButton(
+                onClick = { viewModel.logout() },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp)
+            ) {
+                Text("Logout", fontSize = 16.sp)
             }
         }
     }
 }
 
+@Preview(showBackground = true)
 @Composable
-fun MenuIcon() {
-    IconButton(onClick = { }) {
-        Icon(
-            painter = painterResource(id = R.drawable.ic_menu),
-            contentDescription = "User Icon",
-            tint = Color.White,
-            modifier = Modifier.graphicsLayer(scaleX = 1f, scaleY = 1f)
+fun HomeScreenPreview() {
+    AI_AssistantTheme {
+        HomeScreen(
+            navigateToLogin = {},
+            navigateToAssistant = {}
         )
     }
-}
-
-@Composable
-fun UserIcon(homeViewModel : HomeViewModel, navigateToLogin: () -> Unit) {
-    IconButton(onClick = { homeViewModel.logout(navigateToLogin) }) {
-        Icon(
-            painter = painterResource(id = R.drawable.ic_account),
-            contentDescription = "User Icon",
-            tint = Color.White,
-            modifier = Modifier.graphicsLayer(scaleX = 1.3f, scaleY = 1.3f)
-        )
-    }
-}
-
-@Composable
-fun BackgroundImage() {
-    Image(
-        painter = painterResource(id = R.drawable.computech_background),
-        contentDescription = "Background",
-        modifier = Modifier
-            .fillMaxSize()
-            .graphicsLayer(
-                rotationZ = 90f,
-                scaleX = 2.5f,
-                scaleY = 2.5f,
-                alpha = 1f
-            )
-            .blur(1.8.dp)
-    )
-}
-
-@Composable
-fun SnackbarHost(snackbarHostState: SnackbarHostState) {
-    SnackbarHost(hostState = snackbarHostState)
 }
