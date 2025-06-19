@@ -57,7 +57,12 @@ fun NavigationWrapper() {
                     }
                 },
                 onSignUpClick = { navController.navigate(Register) },
-                onForgotPasswordClick = { navController.navigate(ForgotPassword) }
+                onForgotPasswordClick = { navController.navigate(ForgotPassword) },
+                onEmailVerificationNeeded = { email ->
+                    navController.navigate(EmailVerification) {
+                        popUpTo(Login) { inclusive = true }
+                    }
+                }
             )
         }
 

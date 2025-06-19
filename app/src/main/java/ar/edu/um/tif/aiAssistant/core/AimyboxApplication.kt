@@ -1,7 +1,8 @@
-package ar.edu.um.tif.aiAssistant.core.voice
+package ar.edu.um.tif.aiAssistant.core
 
 import android.app.Application
 import android.content.Context
+import ar.edu.um.tif.aiAssistant.core.client.AssistantApiClient
 import com.justai.aimybox.Aimybox
 import com.justai.aimybox.components.AimyboxProvider
 import com.justai.aimybox.core.Config
@@ -11,9 +12,13 @@ import com.justai.aimybox.speechkit.kaldi.KaldiAssets
 import com.justai.aimybox.speechkit.kaldi.KaldiVoiceTrigger
 import dagger.hilt.android.HiltAndroidApp
 import java.util.Locale
+import javax.inject.Inject
 
 @HiltAndroidApp
 class AimyboxApplication : Application(), AimyboxProvider {
+
+    @Inject
+    lateinit var assistantApiClient: AssistantApiClient
 
     companion object {
         init {
@@ -36,7 +41,8 @@ class AimyboxApplication : Application(), AimyboxProvider {
         val textToSpeech = GooglePlatformTextToSpeech(context, locale)
         val speechToText = GooglePlatformSpeechToText(context, locale)
 
-        val dialogApi = LLMDialogAPI()
+        // Use the injected assistantApiClient as the dialog API
+        val dialogApi = assistantApiClient
 
         val aimyboxConfig = Config.Companion.create(speechToText, textToSpeech, dialogApi) {
             this.voiceTrigger = voiceTrigger

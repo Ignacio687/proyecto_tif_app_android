@@ -45,14 +45,29 @@ class LoginViewModel @Inject constructor(
                     onFailure = { exception ->
                         // Handle the exception and determine the appropriate error message
                         val errorMessage = when {
+                            exception.message?.contains("401") == true &&
+                            exception.message?.contains("verify your email") == true -> "Account not verified"
                             exception.message?.contains("401") == true -> "Invalid credentials"
                             exception.message?.contains("403") == true -> "Account not verified"
                             else -> "Login failed: ${exception.message}"
                         }
-                        _uiState.update { it.copy(
-                            isLoading = false,
-                            errorMessage = errorMessage
-                        )}
+
+                        // Handle specific case for email verification needed
+                        if ((exception.message?.contains("403") == true) ||
+                            (exception.message?.contains("401") == true &&
+                             exception.message?.contains("verify your email") == true)) {
+                            _uiState.update { it.copy(
+                                isLoading = false,
+                                needsEmailVerification = true,
+                                userEmail = emailOrUsername,
+                                errorMessage = null
+                            )}
+                        } else {
+                            _uiState.update { it.copy(
+                                isLoading = false,
+                                errorMessage = errorMessage
+                            )}
+                        }
                     }
                 )
             } catch (e: Exception) {
@@ -68,5 +83,7 @@ class LoginViewModel @Inject constructor(
 data class LoginUiState(
     val isLoading: Boolean = false,
     val isAuthenticated: Boolean = false,
+    val needsEmailVerification: Boolean = false,
+    val userEmail: String? = null,
     val errorMessage: String? = null
 )

@@ -111,6 +111,7 @@ dependencies {
     implementation(libs.ktor.client.json)
     implementation(libs.kotlin.serialization)
     implementation(libs.kotlinx.serialization.json)
+    implementation(libs.kotlin.reflect)
     implementation(libs.okhttp.logging)
 
     // DataStore for secure token storage

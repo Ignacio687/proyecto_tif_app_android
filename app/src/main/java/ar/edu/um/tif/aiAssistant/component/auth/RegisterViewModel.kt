@@ -1,5 +1,6 @@
 package ar.edu.um.tif.aiAssistant.component.auth
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import ar.edu.um.tif.aiAssistant.core.data.repository.AuthRepository
@@ -63,8 +64,12 @@ class RegisterViewModel @Inject constructor(
                         val errorMessage = when {
                             exception.message?.contains("409") == true -> "Email or username already exists"
                             exception.message?.contains("400") == true -> "Invalid email format or password too weak"
-                            else -> "Registration failed: ${exception.message}"
+                            else -> "Registration failed. Please try again later."
                         }
+
+                        // Log the technical error for debugging purposes
+                        Log.e("RegisterViewModel", "Registration error: ${exception.message}", exception)
+
                         _uiState.update { it.copy(
                             isLoading = false,
                             errorMessage = errorMessage
@@ -86,3 +91,5 @@ data class RegisterUiState(
     val isRegistered: Boolean = false,
     val errorMessage: String? = null
 )
+
+

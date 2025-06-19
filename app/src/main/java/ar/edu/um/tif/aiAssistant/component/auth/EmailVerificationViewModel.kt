@@ -38,19 +38,30 @@ class EmailVerificationViewModel @Inject constructor(
                 val result = authRepository.verifyEmail(code)
 
                 result.fold(
-                    onSuccess = {
-                        _uiState.update { it.copy(
-                            isVerified = true,
-                            isLoading = false,
-                            errorMessage = null,
-                            successMessage = "Email successfully verified!"
-                        )}
+                    onSuccess = { response ->
+                        if (response.verified) {
+                            _uiState.update { it.copy(
+                                isVerified = true,
+                                isLoading = false,
+                                errorMessage = null,
+                                successMessage = response.message ?: "Email successfully verified!"
+                            )}
+                        } else {
+                            _uiState.update { it.copy(
+                                isLoading = false,
+                                errorMessage = "Verification failed. Please try again."
+                            )}
+                        }
                     },
                     onFailure = { exception ->
+                        // Log the full technical error to the console
+                        android.util.Log.e("EmailVerificationViewModel", "Verification error: ${exception.message}", exception)
+
+                        // Provide a simplified error message to the user
                         val errorMessage = when {
                             exception.message?.contains("400") == true -> "Invalid verification code"
                             exception.message?.contains("404") == true -> "Email not found or code expired"
-                            else -> "Verification failed: ${exception.message}"
+                            else -> "Verification failed. Please try again."
                         }
                         _uiState.update { it.copy(
                             isLoading = false,
@@ -59,9 +70,13 @@ class EmailVerificationViewModel @Inject constructor(
                     }
                 )
             } catch (e: Exception) {
+                // Log the full technical error to the console
+                android.util.Log.e("EmailVerificationViewModel", "Verification error: ${e.message}", e)
+
+                // Provide a simplified error message to the user
                 _uiState.update { it.copy(
                     isLoading = false,
-                    errorMessage = "Error: ${e.localizedMessage}"
+                    errorMessage = "Verification failed. Please try again."
                 )}
             }
         }

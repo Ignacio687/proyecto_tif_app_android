@@ -8,7 +8,6 @@ import ar.edu.um.tif.aiAssistant.core.navigation.Welcome
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -26,7 +25,8 @@ class SplashViewModel @Inject constructor(
 
     private fun checkAuthStatus() {
         viewModelScope.launch {
-            val token = authRepository.authToken.first()
+            // Get token using the suspending function instead of the flow
+            val token = authRepository.getAuthToken()
 
             // Delay to show splash screen
             kotlinx.coroutines.delay(1500)
@@ -36,8 +36,8 @@ class SplashViewModel @Inject constructor(
                 _navigateTo.value = Welcome
             } else {
                 try {
-                    // Verify token with the server
-                    val response = authRepository.verifyToken(token)
+                    // Verify token with the server (now using the token-optional method)
+                    val response = authRepository.verifyToken()
                     response.fold(
                         onSuccess = {
                             // Token is valid, navigate to home screen
@@ -52,7 +52,10 @@ class SplashViewModel @Inject constructor(
                         }
                     )
                 } catch (e: Exception) {
-                    // Error occurred, navigate to welcome screen
+                    // Error verifying token, clear auth data and navigate to welcome screen
+                    viewModelScope.launch {
+                        authRepository.clearAuthData()
+                    }
                     _navigateTo.value = Welcome
                 }
             }

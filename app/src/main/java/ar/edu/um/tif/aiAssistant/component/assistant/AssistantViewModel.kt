@@ -2,7 +2,9 @@ package ar.edu.um.tif.aiAssistant.component.assistant
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import ar.edu.um.tif.aiAssistant.core.data.model.ApiAssistantModels.UserRequest
 import ar.edu.um.tif.aiAssistant.core.data.repository.AssistantRepository
+import ar.edu.um.tif.aiAssistant.core.client.AssistantApiClient
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -26,15 +28,16 @@ data class AssistantUiState(
 
 @HiltViewModel
 class AssistantViewModel @Inject constructor(
-    private val assistantRepository: AssistantRepository
+    private val assistantRepository: AssistantRepository,
+    private val assistantApiClient: AssistantApiClient
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AssistantUiState())
     val uiState: StateFlow<AssistantUiState> = _uiState.asStateFlow()
 
     init {
-        // You could load conversation history here
-        // loadConversationHistory()
+        // Load conversation history when ViewModel is created
+        loadConversationHistory()
     }
 
     fun sendMessage(message: String) {
@@ -46,90 +49,79 @@ class AssistantViewModel @Inject constructor(
         // Send to AI assistant
         viewModelScope.launch {
             try {
-                _uiState.update { it.copy(isLoading = true, errorMessage = null) }
+                _uiState.update { currentState -> currentState.copy(isLoading = true, errorMessage = null) }
 
-                val result = assistantRepository.sendUserRequest(message)
+                // Create request and use the DialogApi interface directly
+                val request = UserRequest(userReq = message)
+                val response = assistantApiClient.send(request)
 
-                result.fold(
-                    onSuccess = { serverResponse ->
-                        serverResponse.let {
-                            addMessage(ChatMessage(content = it.server_reply, isFromUser = false))
+                // Get the text from the first reply
+                // TextReply in AimyBox has a 'text' property we need to cast
+                val replyText = when (val firstReply = response.replies.firstOrNull()) {
+                    is com.justai.aimybox.model.reply.TextReply -> firstReply.text
+                    else -> "No response from assistant"
+                }
 
-                            // Process any skills/actions returned from the server
-                            it.skills?.forEach { skill ->
-                                // Handle different skills as needed
-                                // e.g., executeSkill(skill)
-                            }
-                        }
+                // Add assistant's response to the chat
+                addMessage(ChatMessage(content = replyText, isFromUser = false))
 
-                        _uiState.update { it.copy(isLoading = false, errorMessage = null) }
-                    },
-                    onFailure = { exception ->
-                        if (exception.message?.contains("401") == true) {
-                            // Authentication error
-                            _uiState.update { it.copy(
-                                isLoading = false,
-                                errorMessage = "Authentication error. Please log in again.",
-                                authError = true
-                            )}
-                        } else {
-                            // Other error
-                            _uiState.update { it.copy(
-                                isLoading = false,
-                                errorMessage = "Error: ${exception.message}"
-                            )}
-                        }
-                    }
-                )
+                _uiState.update { currentState -> currentState.copy(isLoading = false, errorMessage = null) }
             } catch (e: Exception) {
-                _uiState.update { it.copy(
+                _uiState.update { currentState -> currentState.copy(
                     isLoading = false,
                     errorMessage = "Error: ${e.localizedMessage}"
                 )}
+
+                // Add error message to chat for better UX
+                addMessage(ChatMessage(
+                    content = "Sorry, I encountered an error: ${e.message}",
+                    isFromUser = false
+                ))
             }
         }
     }
 
     private fun addMessage(message: ChatMessage) {
-        _uiState.update {
-            it.copy(messages = it.messages + message)
+        _uiState.update { currentState ->
+            currentState.copy(messages = currentState.messages + message)
         }
     }
 
-    private fun loadConversationHistory() {
+    fun loadConversationHistory() {
         viewModelScope.launch {
             try {
-                _uiState.update { it.copy(isLoading = true, errorMessage = null) }
+                _uiState.update { currentState -> currentState.copy(isLoading = true) }
 
                 val result = assistantRepository.getConversationHistory()
 
                 result.fold(
                     onSuccess = { historyData ->
-                        // Process conversation history from response
-                        // The exact implementation would depend on your API response format
+                        // Process history data based on your API response structure
+                        // This is a placeholder implementation
+                        val messages = (historyData["messages"] as? List<Map<String, Any>>)?.map { messageData ->
+                            ChatMessage(
+                                id = (messageData["id"] as? String) ?: System.currentTimeMillis().toString(),
+                                content = (messageData["content"] as? String) ?: "",
+                                isFromUser = (messageData["is_user"] as? Boolean) ?: false
+                            )
+                        } ?: emptyList()
 
-                        _uiState.update { it.copy(isLoading = false) }
+                        _uiState.update { currentState -> currentState.copy(
+                            messages = messages,
+                            isLoading = false
+                        )}
                     },
-                    onFailure = { exception ->
-                        if (exception.message?.contains("401") == true) {
-                            // Authentication error
-                            _uiState.update { it.copy(
-                                isLoading = false,
-                                authError = true
-                            )}
-                        } else {
-                            // Other error
-                            _uiState.update { it.copy(
-                                isLoading = false,
-                                errorMessage = "Failed to load conversation history"
-                            )}
-                        }
+                    onFailure = { error ->
+                        _uiState.update { currentState -> currentState.copy(
+                            isLoading = false,
+                            errorMessage = "Failed to load conversation history: ${error.message}"
+                        )}
                     }
                 )
             } catch (e: Exception) {
-                _uiState.update { it.copy(
+                _uiState.update { currentState -> currentState.copy(
                     isLoading = false,
-                    errorMessage = "Error: ${e.localizedMessage}"
+                    errorMessage = "Error loading history: ${e.localizedMessage}"
                 )}
             }
         }

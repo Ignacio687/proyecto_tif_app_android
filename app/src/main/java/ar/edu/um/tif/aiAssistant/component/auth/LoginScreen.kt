@@ -27,7 +27,8 @@ fun LoginScreen(
     viewModel: LoginViewModel = hiltViewModel(),
     onLoginSuccess: () -> Unit,
     onSignUpClick: () -> Unit,
-    onForgotPasswordClick: () -> Unit
+    onForgotPasswordClick: () -> Unit,
+    onEmailVerificationNeeded: (String) -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val focusManager = LocalFocusManager.current
@@ -39,6 +40,14 @@ fun LoginScreen(
     LaunchedEffect(uiState.isAuthenticated) {
         if (uiState.isAuthenticated) {
             onLoginSuccess()
+        }
+    }
+
+    LaunchedEffect(uiState.needsEmailVerification) {
+        if (uiState.needsEmailVerification) {
+            uiState.userEmail?.let { email ->
+                onEmailVerificationNeeded(email)
+            }
         }
     }
 
@@ -190,7 +199,8 @@ fun LoginScreenPreview() {
         LoginScreen(
             onLoginSuccess = {},
             onSignUpClick = {},
-            onForgotPasswordClick = {}
+            onForgotPasswordClick = {},
+            onEmailVerificationNeeded = {}
         )
     }
 }
