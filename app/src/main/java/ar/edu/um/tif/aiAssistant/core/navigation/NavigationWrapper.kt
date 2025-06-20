@@ -59,7 +59,9 @@ fun NavigationWrapper() {
                 onSignUpClick = { navController.navigate(Register) },
                 onForgotPasswordClick = { navController.navigate(ForgotPassword) },
                 onEmailVerificationNeeded = { email ->
-                    navController.navigate(EmailVerification) {
+                    navController.navigate(EmailVerification.apply {
+                        this.email = email
+                    }) {
                         popUpTo(Login) { inclusive = true }
                     }
                 }
@@ -69,7 +71,9 @@ fun NavigationWrapper() {
         composable<Register> {
             RegisterScreen(
                 onRegistrationSuccess = { email ->
-                    navController.navigate(EmailVerification) {
+                    navController.navigate(EmailVerification.apply {
+                        this.email = email
+                    }) {
                         popUpTo(Register) { inclusive = true }
                     }
                 },
@@ -93,6 +97,13 @@ fun NavigationWrapper() {
                 onVerificationSuccess = {
                     navController.navigate(Home) {
                         popUpTo(Welcome) { inclusive = true }
+                    }
+                },
+                onNavigateToLogin = {
+                    // Navigate to login screen after email verification
+                    navController.navigate(Login) {
+                        // Remove email verification screen from back stack
+                        popUpTo(EmailVerification) { inclusive = true }
                     }
                 },
                 onResendCode = { /* Code resent */ },

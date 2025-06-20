@@ -35,19 +35,20 @@ class ForgotPasswordViewModel @Inject constructor(
                 val result = authRepository.requestPasswordReset(email)
 
                 result.fold(
-                    onSuccess = {
+                    onSuccess = { response ->
                         _uiState.update { it.copy(
                             isCodeSent = true,
                             isLoading = false,
-                            errorMessage = null
+                            errorMessage = null,
+                            successMessage = response.message
                         )}
                     },
                     onFailure = { exception ->
-                        val errorMessage = when {
-                            exception.message?.contains("404") == true -> "Email not found"
-                            exception.message?.contains("429") == true -> "Too many requests, please try again later"
-                            else -> "Failed to send reset code: ${exception.message}"
-                        }
+                        // Log the technical error for debugging
+                        android.util.Log.e("ForgotPasswordViewModel", "Password reset error: ${exception.message}", exception)
+
+                        // Provide a user-friendly error message
+                        val errorMessage = "We couldn't process your request. Please try again later."
                         _uiState.update { it.copy(
                             isLoading = false,
                             errorMessage = errorMessage
@@ -67,5 +68,6 @@ class ForgotPasswordViewModel @Inject constructor(
 data class ForgotPasswordUiState(
     val isLoading: Boolean = false,
     val isCodeSent: Boolean = false,
-    val errorMessage: String? = null
+    val errorMessage: String? = null,
+    val successMessage: String? = null
 )

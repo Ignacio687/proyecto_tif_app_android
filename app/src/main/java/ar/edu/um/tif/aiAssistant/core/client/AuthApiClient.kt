@@ -5,9 +5,12 @@ import ar.edu.um.tif.aiAssistant.core.data.model.ApiAuthModels.EmailLoginRequest
 import ar.edu.um.tif.aiAssistant.core.data.model.ApiAuthModels.EmailRegisterRequest
 import ar.edu.um.tif.aiAssistant.core.data.model.ApiAuthModels.EmailVerificationRequest
 import ar.edu.um.tif.aiAssistant.core.data.model.ApiAuthModels.GoogleAuthRequest
+import ar.edu.um.tif.aiAssistant.core.data.model.ApiAuthModels.MessageResponse
 import ar.edu.um.tif.aiAssistant.core.data.model.ApiAuthModels.PasswordResetConfirmRequest
 import ar.edu.um.tif.aiAssistant.core.data.model.ApiAuthModels.PasswordResetRequest
+import ar.edu.um.tif.aiAssistant.core.data.model.ApiAuthModels.RegisterResponse
 import ar.edu.um.tif.aiAssistant.core.data.model.ApiAuthModels.ResendVerificationRequest
+import ar.edu.um.tif.aiAssistant.core.data.model.ApiAuthModels.TokenVerificationResponse
 import ar.edu.um.tif.aiAssistant.core.data.model.ApiAuthModels.VerificationResponse
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
@@ -49,7 +52,7 @@ class AuthApiClient @Inject constructor(
     /**
      * Verify the validity of an authentication token
      */
-    suspend fun verifyToken(token: String): Result<Map<String, Any>> = runCatching {
+    suspend fun verifyToken(token: String): Result<TokenVerificationResponse> = runCatching {
         val response = client.post {
             url("$apiPath/verify-token")
             contentType(ContentType.Application.Json)
@@ -63,7 +66,7 @@ class AuthApiClient @Inject constructor(
     /**
      * Register a new user with email, username, and password
      */
-    suspend fun registerWithEmail(request: EmailRegisterRequest): Result<AuthResponse> = runCatching {
+    suspend fun registerWithEmail(request: EmailRegisterRequest): Result<RegisterResponse> = runCatching {
         val response = client.post {
             url("$apiPath/register")
             contentType(ContentType.Application.Json)
@@ -121,7 +124,7 @@ class AuthApiClient @Inject constructor(
     /**
      * Request a password reset via email
      */
-    suspend fun requestPasswordReset(request: PasswordResetRequest): Result<VerificationResponse> = runCatching {
+    suspend fun requestPasswordReset(request: PasswordResetRequest): Result<MessageResponse> = runCatching {
         val response = client.post {
             url("$apiPath/request-password-reset")
             contentType(ContentType.Application.Json)
@@ -133,7 +136,7 @@ class AuthApiClient @Inject constructor(
     /**
      * Confirm a password reset with a verification code and new password
      */
-    suspend fun confirmPasswordReset(request: PasswordResetConfirmRequest): Result<VerificationResponse> = runCatching {
+    suspend fun confirmPasswordReset(request: PasswordResetConfirmRequest): Result<MessageResponse> = runCatching {
         val response = client.post {
             url("$apiPath/confirm-password-reset")
             contentType(ContentType.Application.Json)

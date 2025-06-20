@@ -2,6 +2,7 @@ package ar.edu.um.tif.aiAssistant.core.client
 
 import ar.edu.um.tif.aiAssistant.core.data.model.ApiAssistantModels.ServerResponse
 import ar.edu.um.tif.aiAssistant.core.data.model.ApiAssistantModels.UserRequest
+import ar.edu.um.tif.aiAssistant.core.data.model.ApiConversationModels.ConversationHistoryResponse
 import ar.edu.um.tif.aiAssistant.core.data.repository.AuthRepository
 import com.justai.aimybox.api.DialogApi
 import com.justai.aimybox.core.CustomSkill
@@ -87,7 +88,7 @@ class AssistantApiClient @Inject constructor(
         token: String,
         page: Int = 1,
         pageSize: Int = 10
-    ): Result<Map<String, Any>> {
+    ): Result<ConversationHistoryResponse> {
         return runCatching {
             val response = client.get {
                 url(conversationsEndpoint)
@@ -97,7 +98,7 @@ class AssistantApiClient @Inject constructor(
                 parameter("page", page)
                 parameter("page_size", pageSize)
             }
-            response.body()
+            response.body<ConversationHistoryResponse>()
         }
     }
 

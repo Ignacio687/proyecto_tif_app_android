@@ -4,6 +4,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import ar.edu.um.tif.aiAssistant.core.data.repository.AuthRepository
+import ar.edu.um.tif.aiAssistant.core.navigation.EmailVerification
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -21,6 +22,22 @@ class EmailVerificationViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow(EmailVerificationUiState())
     val uiState: StateFlow<EmailVerificationUiState> = _uiState.asStateFlow()
+
+    // Get email from EmailVerification navigation object
+    private var email = EmailVerification.email
+
+    init {
+        // Log the email for debugging purposes
+        android.util.Log.d("EmailVerificationViewModel", "Email received: $email")
+
+        // Update UI state with the email
+        _uiState.update { it.copy(email = email, needsEmailInput = email.isEmpty()) }
+    }
+
+    fun updateEmail(newEmail: String) {
+        email = newEmail
+        _uiState.update { it.copy(email = newEmail, needsEmailInput = false) }
+    }
 
     fun verifyEmail(code: String) {
         if (code.isBlank()) {
@@ -57,12 +74,17 @@ class EmailVerificationViewModel @Inject constructor(
                         // Log the full technical error to the console
                         android.util.Log.e("EmailVerificationViewModel", "Verification error: ${exception.message}", exception)
 
-                        // Provide a simplified error message to the user
+                        // Provide a user-friendly error message
                         val errorMessage = when {
-                            exception.message?.contains("400") == true -> "Invalid verification code"
-                            exception.message?.contains("404") == true -> "Email not found or code expired"
-                            else -> "Verification failed. Please try again."
+                            exception.message?.contains("Invalid or expired verification code") == true ->
+                                "Your verification code is invalid or has expired. Please request a new code."
+                            exception.message?.contains("400") == true ->
+                                "Invalid verification code. Please check and try again."
+                            exception.message?.contains("404") == true ->
+                                "Email not found or code expired. Please try registering again."
+                            else -> "Verification failed. Please try again later."
                         }
+
                         _uiState.update { it.copy(
                             isLoading = false,
                             errorMessage = errorMessage
@@ -87,16 +109,26 @@ class EmailVerificationViewModel @Inject constructor(
             try {
                 _uiState.update { it.copy(isLoading = true, errorMessage = null, successMessage = null) }
 
-                val email = authRepository.email.first() ?: return@launch
+                // Log the email being used for debugging
+                android.util.Log.d("EmailVerificationViewModel", "Resending verification code to: $email")
+
+                // Check if we have an email to send to
+                if (email.isBlank()) {
+                    _uiState.update { it.copy(
+                        isLoading = false,
+                        errorMessage = "Email address is missing. Please go back and try again."
+                    )}
+                    return@launch
+                }
 
                 val result = authRepository.resendVerificationCode(email)
 
                 result.fold(
-                    onSuccess = {
+                    onSuccess = { response ->
                         _uiState.update { it.copy(
                             isLoading = false,
                             errorMessage = null,
-                            successMessage = "Verification code resent to your email"
+                            successMessage = response.message
                         )}
                     },
                     onFailure = { exception ->
@@ -125,5 +157,7 @@ data class EmailVerificationUiState(
     val isLoading: Boolean = false,
     val isVerified: Boolean = false,
     val errorMessage: String? = null,
-    val successMessage: String? = null
+    val successMessage: String? = null,
+    val email: String? = null, // Add email to the UI state
+    val needsEmailInput: Boolean = false // Track if email input is needed
 )

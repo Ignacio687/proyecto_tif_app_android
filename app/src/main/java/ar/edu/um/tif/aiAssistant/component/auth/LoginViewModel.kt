@@ -56,10 +56,24 @@ class LoginViewModel @Inject constructor(
                         if ((exception.message?.contains("403") == true) ||
                             (exception.message?.contains("401") == true &&
                              exception.message?.contains("verify your email") == true)) {
+
+                            // Make sure we're using an email address for verification
+                            val emailToVerify = if (emailOrUsername.contains("@")) {
+                                // User entered an email, use it directly
+                                emailOrUsername
+                            } else {
+                                // If they used a username to login, we won't have their email
+                                // We'll leave it empty and ask for it in the verification screen
+                                ""
+                            }
+
+                            // Log for debugging
+                            android.util.Log.d("LoginViewModel", "Setting email for verification: $emailToVerify")
+
                             _uiState.update { it.copy(
                                 isLoading = false,
                                 needsEmailVerification = true,
-                                userEmail = emailOrUsername,
+                                userEmail = emailToVerify,
                                 errorMessage = null
                             )}
                         } else {

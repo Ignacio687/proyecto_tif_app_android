@@ -50,6 +50,13 @@ object ApiAuthModels {
     )
 
     @Serializable
+    data class RegisterResponse(
+        val message: String,
+        @SerialName("user_id")
+        val userId: String
+    )
+
+    @Serializable
     data class AuthResponse(
         @SerialName("access_token")
         val accessToken: String,
@@ -67,5 +74,18 @@ object ApiAuthModels {
     data class VerificationResponse(
         val message: String,
         val verified: Boolean
+    )
+
+    @Serializable
+    data class TokenVerificationResponse(
+        @SerialName("user_id")
+        val userId: String,
+        val email: String,
+        val valid: Boolean
+    )
+
+    @Serializable
+    data class MessageResponse(
+        val message: String
     )
 }

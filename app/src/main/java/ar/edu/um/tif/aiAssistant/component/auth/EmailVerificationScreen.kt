@@ -23,6 +23,7 @@ import ar.edu.um.tif.aiAssistant.ui.theme.AI_AssistantTheme
 fun EmailVerificationScreen(
     viewModel: EmailVerificationViewModel = hiltViewModel(),
     onVerificationSuccess: () -> Unit,
+    onNavigateToLogin: () -> Unit,
     onResendCode: () -> Unit,
     onBackClick: () -> Unit
 ) {
@@ -30,10 +31,14 @@ fun EmailVerificationScreen(
     val focusManager = LocalFocusManager.current
 
     var verificationCode by rememberSaveable { mutableStateOf("") }
+    var emailInput by rememberSaveable { mutableStateOf(uiState.email ?: "") }
 
+    // Changed to display a success message and navigate to login instead of directly continuing
     LaunchedEffect(uiState.isVerified) {
         if (uiState.isVerified) {
-            onVerificationSuccess()
+            // Wait briefly to show the success message before navigating
+            kotlinx.coroutines.delay(1500)
+            onNavigateToLogin() // Navigate to login screen instead of success
         }
     }
 
@@ -55,101 +60,174 @@ fun EmailVerificationScreen(
                 modifier = Modifier.padding(vertical = 32.dp)
             )
 
-            // Instructions
-            Text(
-                text = "We've sent a verification code to your email. Please enter the code below to verify your account.",
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(bottom = 32.dp)
-            )
+            // If we have the email, display it
+            if (!uiState.needsEmailInput && !uiState.email.isNullOrBlank()) {
+                Text(
+                    text = "Email: ${uiState.email}",
+                    textAlign = TextAlign.Center,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(bottom = 16.dp)
+                )
+            }
 
-            // Verification Form
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp)
+            // If we need the email, show input field
+            if (uiState.needsEmailInput) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
                 ) {
-                    // Code Field
-                    OutlinedTextField(
-                        value = verificationCode,
-                        onValueChange = { verificationCode = it },
-                        label = { Text("Verification Code") },
-                        singleLine = true,
+                    Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(vertical = 8.dp),
-                        keyboardOptions = KeyboardOptions(
-                            keyboardType = KeyboardType.Number,
-                            imeAction = ImeAction.Done
-                        ),
-                        keyboardActions = KeyboardActions(
-                            onDone = {
-                                focusManager.clearFocus()
-                                viewModel.verifyEmail(verificationCode)
-                            }
-                        ),
-                        isError = uiState.errorMessage != null
-                    )
-
-                    // Error Message
-                    if (uiState.errorMessage != null) {
-                        Text(
-                            text = uiState.errorMessage ?: "",
-                            color = MaterialTheme.colorScheme.error,
-                            style = MaterialTheme.typography.bodySmall,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(top = 4.dp),
-                            textAlign = TextAlign.Center
-                        )
-                    }
-
-                    // Success Message
-                    if (uiState.successMessage != null) {
-                        Text(
-                            text = uiState.successMessage ?: "",
-                            color = MaterialTheme.colorScheme.primary,
-                            style = MaterialTheme.typography.bodySmall,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(top = 4.dp),
-                            textAlign = TextAlign.Center
-                        )
-                    }
-
-                    // Verify Button
-                    Button(
-                        onClick = { viewModel.verifyEmail(verificationCode) },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(56.dp)
-                            .padding(top = 16.dp),
-                        enabled = !uiState.isLoading && verificationCode.isNotBlank()
+                            .padding(16.dp)
                     ) {
-                        if (uiState.isLoading) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(24.dp),
-                                color = MaterialTheme.colorScheme.onPrimary
+                        Text(
+                            text = "Please enter your email address:",
+                            style = MaterialTheme.typography.bodyLarge,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+
+                        OutlinedTextField(
+                            value = emailInput,
+                            onValueChange = { emailInput = it },
+                            label = { Text("Email Address") },
+                            singleLine = true,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 8.dp),
+                            keyboardOptions = KeyboardOptions(
+                                keyboardType = KeyboardType.Email,
+                                imeAction = ImeAction.Done
+                            ),
+                            keyboardActions = KeyboardActions(
+                                onDone = {
+                                    focusManager.clearFocus()
+                                    if (emailInput.contains("@")) {
+                                        viewModel.updateEmail(emailInput)
+                                    }
+                                }
                             )
-                        } else {
-                            Text("Verify Email")
+                        )
+
+                        Button(
+                            onClick = {
+                                if (emailInput.contains("@")) {
+                                    viewModel.updateEmail(emailInput)
+                                }
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(56.dp)
+                                .padding(top = 8.dp),
+                            enabled = emailInput.contains("@")
+                        ) {
+                            Text("Confirm Email")
                         }
                     }
+                }
 
-                    // Resend Code
-                    TextButton(
-                        onClick = {
-                            viewModel.resendVerificationCode()
-                            onResendCode()
-                        },
+                Spacer(modifier = Modifier.height(24.dp))
+            }
+
+            // Only show verification instructions and form if we don't need email input
+            if (!uiState.needsEmailInput) {
+                // Instructions
+                Text(
+                    text = "We've sent a verification code to your email. Please enter the code below to verify your account.",
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(bottom = 32.dp)
+                )
+
+                // Verification Form
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                ) {
+                    Column(
                         modifier = Modifier
-                            .align(Alignment.CenterHorizontally)
-                            .padding(top = 16.dp)
+                            .fillMaxWidth()
+                            .padding(16.dp)
                     ) {
-                        Text("Resend Code")
+                        // Code Field
+                        OutlinedTextField(
+                            value = verificationCode,
+                            onValueChange = { verificationCode = it },
+                            label = { Text("Verification Code") },
+                            singleLine = true,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 8.dp),
+                            keyboardOptions = KeyboardOptions(
+                                keyboardType = KeyboardType.Number,
+                                imeAction = ImeAction.Done
+                            ),
+                            keyboardActions = KeyboardActions(
+                                onDone = {
+                                    focusManager.clearFocus()
+                                    viewModel.verifyEmail(verificationCode)
+                                }
+                            ),
+                            isError = uiState.errorMessage != null
+                        )
+
+                        // Error Message
+                        if (uiState.errorMessage != null) {
+                            Text(
+                                text = uiState.errorMessage ?: "",
+                                color = MaterialTheme.colorScheme.error,
+                                style = MaterialTheme.typography.bodySmall,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 4.dp),
+                                textAlign = TextAlign.Center
+                            )
+                        }
+
+                        // Success Message
+                        if (uiState.successMessage != null) {
+                            Text(
+                                text = uiState.successMessage ?: "",
+                                color = MaterialTheme.colorScheme.primary,
+                                style = MaterialTheme.typography.bodySmall,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 4.dp),
+                                textAlign = TextAlign.Center
+                            )
+                        }
+
+                        // Verify Button
+                        Button(
+                            onClick = { viewModel.verifyEmail(verificationCode) },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(56.dp)
+                                .padding(top = 16.dp),
+                            enabled = !uiState.isLoading && verificationCode.isNotBlank()
+                        ) {
+                            if (uiState.isLoading) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(24.dp),
+                                    color = MaterialTheme.colorScheme.onPrimary
+                                )
+                            } else {
+                                Text("Verify Email")
+                            }
+                        }
+
+                        // Resend Code
+                        TextButton(
+                            onClick = {
+                                viewModel.resendVerificationCode()
+                                onResendCode()
+                            },
+                            modifier = Modifier
+                                .align(Alignment.CenterHorizontally)
+                                .padding(top = 16.dp)
+                        ) {
+                            Text("Resend Code")
+                        }
                     }
                 }
             }
@@ -174,7 +252,8 @@ fun EmailVerificationScreenPreview() {
         EmailVerificationScreen(
             onVerificationSuccess = {},
             onResendCode = {},
-            onBackClick = {}
+            onBackClick = {},
+            onNavigateToLogin = {}
         )
     }
 }

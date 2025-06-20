@@ -1,22 +1,32 @@
 package ar.edu.um.tif.aiAssistant.component.assistant
 
+import android.Manifest
+import androidx.annotation.RequiresPermission
+import androidx.lifecycle.LiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import ar.edu.um.tif.aiAssistant.core.data.model.ApiAssistantModels.UserRequest
 import ar.edu.um.tif.aiAssistant.core.data.repository.AssistantRepository
 import ar.edu.um.tif.aiAssistant.core.client.AssistantApiClient
+import com.justai.aimybox.Aimybox
+import com.justai.aimybox.components.AimyboxAssistantViewModel
+import com.justai.aimybox.components.widget.AssistantWidget
+import com.justai.aimybox.components.widget.Button
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.time.Instant
+import java.time.format.DateTimeParseException
 import javax.inject.Inject
 
 data class ChatMessage(
     val id: String = System.currentTimeMillis().toString(),
     val content: String,
-    val isFromUser: Boolean
+    val isFromUser: Boolean,
+    val timestamp: Long = System.currentTimeMillis()
 )
 
 data class AssistantUiState(
@@ -35,9 +45,73 @@ class AssistantViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(AssistantUiState())
     val uiState: StateFlow<AssistantUiState> = _uiState.asStateFlow()
 
+    // AimyBox related properties - using safer initialization approach
+    private var _aimyboxDelegate: AimyboxAssistantViewModel? = null
+    private var _widgets: LiveData<List<AssistantWidget>>? = null
+    private var _aimyboxState: LiveData<Aimybox.State>? = null
+
+    // Safe accessors that won't throw exceptions if not initialized
+    val widgets: LiveData<List<AssistantWidget>>?
+        get() = _widgets
+
+    val aimyboxState: LiveData<Aimybox.State>?
+        get() = _aimyboxState
+
     init {
         // Load conversation history when ViewModel is created
         loadConversationHistory()
+    }
+
+    /**
+     * Initialize the AimyBox delegate
+     * This must be called before using any AimyBox features
+     */
+    fun initializeAimybox(aimybox: Aimybox) {
+        // Create the delegate with the provided Aimybox instance
+        _aimyboxDelegate = AimyboxAssistantViewModel(aimybox)
+
+        // Get references to the delegate's properties
+        _widgets = _aimyboxDelegate?.widgets
+        _aimyboxState = _aimyboxDelegate?.aimyboxState
+    }
+
+    /**
+     * Handle AimyBox button click
+     * Requires RECORD_AUDIO permission
+     */
+    @RequiresPermission(Manifest.permission.RECORD_AUDIO)
+    fun onAssistantButtonClick() {
+        _aimyboxDelegate?.onAssistantButtonClick()
+    }
+
+    /**
+     * Handle AimyBox button click
+     * Requires RECORD_AUDIO permission
+     */
+    @RequiresPermission(Manifest.permission.RECORD_AUDIO)
+    fun onButtonClick(button: Button) {
+        _aimyboxDelegate?.onButtonClick(button)
+    }
+
+    /**
+     * Mute AimyBox
+     */
+    fun muteAimybox() {
+        _aimyboxDelegate?.muteAimybox()
+    }
+
+    /**
+     * Unmute AimyBox
+     */
+    fun unmuteAimybox() {
+        _aimyboxDelegate?.unmuteAimybox()
+    }
+
+    /**
+     * Set initial phrase
+     */
+    fun setInitialPhrase(text: String) {
+        _aimyboxDelegate?.setInitialPhrase(text)
     }
 
     fun sendMessage(message: String) {
@@ -69,18 +143,64 @@ class AssistantViewModel @Inject constructor(
             } catch (e: Exception) {
                 _uiState.update { currentState -> currentState.copy(
                     isLoading = false,
-                    errorMessage = "Error: ${e.localizedMessage}"
+                    errorMessage = "Unable to process your request. Please try again later."
                 )}
 
-                // Add error message to chat for better UX
+                // Log the detailed error
+                android.util.Log.e("AssistantViewModel", "Error sending message", e)
+
+                // Add user-friendly error message to chat
                 addMessage(ChatMessage(
-                    content = "Sorry, I encountered an error: ${e.message}",
+                    content = "Sorry, I'm having trouble processing your request right now.",
                     isFromUser = false
                 ))
             }
         }
     }
 
+    /**
+     * Add a message from the user to the chat (for voice interactions)
+     */
+    fun addVoiceRequestMessage(text: String) {
+        if (text.isBlank()) return
+
+        // Check if this message is already in the chat to avoid duplicates
+        val existingMessages = _uiState.value.messages
+        val isAlreadyAdded = existingMessages.any {
+            it.isFromUser && it.content == text
+        }
+
+        if (!isAlreadyAdded) {
+            addMessage(ChatMessage(
+                content = text,
+                isFromUser = true
+            ))
+        }
+    }
+
+    /**
+     * Add a response from the assistant to the chat (for voice interactions)
+     */
+    fun addVoiceResponseMessage(text: String) {
+        if (text.isBlank()) return
+
+        // Check if this message is already in the chat to avoid duplicates
+        val existingMessages = _uiState.value.messages
+        val isAlreadyAdded = existingMessages.any {
+            !it.isFromUser && it.content == text
+        }
+
+        if (!isAlreadyAdded) {
+            addMessage(ChatMessage(
+                content = text,
+                isFromUser = false
+            ))
+        }
+    }
+
+    /**
+     * Add a message to the chat
+     */
     private fun addMessage(message: ChatMessage) {
         _uiState.update { currentState ->
             currentState.copy(messages = currentState.messages + message)
@@ -95,33 +215,83 @@ class AssistantViewModel @Inject constructor(
                 val result = assistantRepository.getConversationHistory()
 
                 result.fold(
-                    onSuccess = { historyData ->
-                        // Process history data based on your API response structure
-                        // This is a placeholder implementation
-                        val messages = (historyData["messages"] as? List<Map<String, Any>>)?.map { messageData ->
-                            ChatMessage(
-                                id = (messageData["id"] as? String) ?: System.currentTimeMillis().toString(),
-                                content = (messageData["content"] as? String) ?: "",
-                                isFromUser = (messageData["is_user"] as? Boolean) ?: false
-                            )
-                        } ?: emptyList()
+                    onSuccess = { historyResponse ->
+                        // Process conversation history data - server already sends in order (0 = most recent)
+                        val messages = historyResponse.conversations.flatMap { conversation ->
+                            try {
+                                // Parse the timestamp string to get date and time
+                                val timestamp = try {
+                                    val regex = """(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2})""".toRegex()
+                                    val matchResult = regex.find(conversation.timestamp)
+
+                                    if (matchResult != null) {
+                                        // Extract date components to create a timestamp
+                                        val (date, hours, minutes) = matchResult.destructured
+                                        val year = date.substring(0, 4).toInt()
+                                        val month = date.substring(5, 7).toInt() - 1 // Month is 0-based in Calendar
+                                        val day = date.substring(8, 10).toInt()
+                                        val hour = hours.toInt()
+                                        val minute = minutes.toInt()
+
+                                        // Create a calendar with the extracted date and time
+                                        val calendar = java.util.Calendar.getInstance()
+                                        calendar.set(year, month, day, hour, minute, 0)
+                                        calendar.set(java.util.Calendar.MILLISECOND, 0)
+                                        calendar.timeInMillis
+                                    } else {
+                                        System.currentTimeMillis()
+                                    }
+                                } catch (e: Exception) {
+                                    android.util.Log.e("AssistantViewModel", "Failed to parse timestamp: ${conversation.timestamp}", e)
+                                    System.currentTimeMillis()
+                                }
+
+                                // For each conversation create a pair of messages in the right order
+                                val userMessage = ChatMessage(
+                                    id = "${timestamp}_user",
+                                    content = conversation.userInput,
+                                    isFromUser = true,
+                                    timestamp = timestamp
+                                )
+                                val assistantMessage = ChatMessage(
+                                    id = "${timestamp}_assistant",
+                                    content = conversation.serverReply,
+                                    isFromUser = false,
+                                    timestamp = timestamp
+                                )
+
+                                // Return the pair with user message first, then assistant message
+                                listOf(assistantMessage, userMessage)
+                            } catch (e: Exception) {
+                                android.util.Log.e("AssistantViewModel", "Error processing conversation", e)
+                                emptyList()
+                            }
+                        }
 
                         _uiState.update { currentState -> currentState.copy(
-                            messages = messages,
-                            isLoading = false
+                            messages = messages.reversed(),  // Reverse the order so oldest appear first, newest last
+                            isLoading = false,
+                            errorMessage = null
                         )}
                     },
                     onFailure = { error ->
+                        // Log the detailed error for debugging
+                        android.util.Log.e("AssistantViewModel", "History loading error", error)
+
+                        // Set a user-friendly error message
                         _uiState.update { currentState -> currentState.copy(
                             isLoading = false,
-                            errorMessage = "Failed to load conversation history: ${error.message}"
+                            errorMessage = "Unable to load conversation history. Please try again later."
                         )}
                     }
                 )
             } catch (e: Exception) {
+                // Log the detailed exception
+                android.util.Log.e("AssistantViewModel", "Exception loading history", e)
+
                 _uiState.update { currentState -> currentState.copy(
                     isLoading = false,
-                    errorMessage = "Error loading history: ${e.localizedMessage}"
+                    errorMessage = "Unable to load conversation history. Please try again later."
                 )}
             }
         }

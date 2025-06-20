@@ -36,15 +36,27 @@ class SplashViewModel @Inject constructor(
                 _navigateTo.value = Welcome
             } else {
                 try {
-                    // Verify token with the server (now using the token-optional method)
+                    // Verify token with the server
                     val response = authRepository.verifyToken()
                     response.fold(
-                        onSuccess = {
-                            // Token is valid, navigate to home screen
-                            _navigateTo.value = Home
+                        onSuccess = { tokenData ->
+                            // Check if the token is valid
+                            if (tokenData.valid) {
+                                // Token is valid, navigate to home screen
+                                _navigateTo.value = Home
+                            } else {
+                                // Token is invalid, clear auth data and navigate to welcome screen
+                                viewModelScope.launch {
+                                    authRepository.clearAuthData()
+                                }
+                                _navigateTo.value = Welcome
+                            }
                         },
-                        onFailure = {
-                            // Token is invalid, clear auth data and navigate to welcome screen
+                        onFailure = { error ->
+                            // Log the error for debugging
+                            android.util.Log.e("SplashViewModel", "Token verification failed", error)
+
+                            // Token verification failed, clear auth data and navigate to welcome screen
                             viewModelScope.launch {
                                 authRepository.clearAuthData()
                             }
@@ -52,6 +64,9 @@ class SplashViewModel @Inject constructor(
                         }
                     )
                 } catch (e: Exception) {
+                    // Log the error for debugging
+                    android.util.Log.e("SplashViewModel", "Exception during token verification", e)
+
                     // Error verifying token, clear auth data and navigate to welcome screen
                     viewModelScope.launch {
                         authRepository.clearAuthData()

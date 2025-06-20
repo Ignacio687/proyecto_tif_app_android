@@ -18,7 +18,9 @@ object Register
 object GoogleSignIn
 
 @Serializable
-object EmailVerification
+object EmailVerification {
+    var email: String = ""
+}
 
 @Serializable
 object ForgotPassword

@@ -81,8 +81,8 @@ class AuthRepository @Inject constructor(
     }
 
     // Register with email
-    suspend fun registerWithEmail(email: String, username: String, password: String, name: String? = null): Result<ApiAuthModels.AuthResponse> {
-        val result = authClient.registerWithEmail(
+    suspend fun registerWithEmail(email: String, username: String, password: String, name: String? = null): Result<ApiAuthModels.RegisterResponse> {
+        return authClient.registerWithEmail(
             ApiAuthModels.EmailRegisterRequest(
                 email = email,
                 username = username,
@@ -90,13 +90,6 @@ class AuthRepository @Inject constructor(
                 name = name
             )
         )
-
-        result.onSuccess { authResponse ->
-            authResponse.accessToken.let { saveAuthToken(it) }
-            saveUserData(authResponse)
-        }
-
-        return result
     }
 
     // Login with email
@@ -127,12 +120,12 @@ class AuthRepository @Inject constructor(
     }
 
     // Request password reset
-    suspend fun requestPasswordReset(email: String): Result<ApiAuthModels.VerificationResponse> {
+    suspend fun requestPasswordReset(email: String): Result<ApiAuthModels.MessageResponse> {
         return authClient.requestPasswordReset(ApiAuthModels.PasswordResetRequest(email))
     }
 
     // Confirm password reset
-    suspend fun confirmPasswordReset(code: String, newPassword: String): Result<ApiAuthModels.VerificationResponse> {
+    suspend fun confirmPasswordReset(code: String, newPassword: String): Result<ApiAuthModels.MessageResponse> {
         return authClient.confirmPasswordReset(
             ApiAuthModels.PasswordResetConfirmRequest(
                 code = code,
@@ -142,7 +135,7 @@ class AuthRepository @Inject constructor(
     }
 
     // Verify token
-    suspend fun verifyToken(token: String? = null): Result<Map<String, Any>> {
+    suspend fun verifyToken(token: String? = null): Result<ApiAuthModels.TokenVerificationResponse> {
         // Use provided token or get from storage
         val authToken = token ?: getAuthToken() ?: return Result.failure(IllegalStateException("No token available"))
         return authClient.verifyToken(authToken)
