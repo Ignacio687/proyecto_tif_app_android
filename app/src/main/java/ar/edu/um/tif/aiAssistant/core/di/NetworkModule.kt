@@ -6,6 +6,7 @@ import ar.edu.um.tif.aiAssistant.core.client.AuthApiClient
 import ar.edu.um.tif.aiAssistant.core.client.AssistantApiClient
 import ar.edu.um.tif.aiAssistant.core.customException.UnauthorizedAccessException
 import ar.edu.um.tif.aiAssistant.core.data.repository.AuthRepository
+import com.justai.aimybox.core.CustomSkill
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -215,7 +216,11 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    fun provideAssistantApiClient(@AuthenticatedHttpClient client: HttpClient, authRepository: AuthRepository): AssistantApiClient {
-        return AssistantApiClient(client, authRepository)
+    fun provideAssistantApiClient(
+        @AuthenticatedHttpClient client: HttpClient,
+        authRepository: AuthRepository,
+        customSkills: LinkedHashSet<CustomSkill<*, *>>
+    ): AssistantApiClient {
+        return AssistantApiClient(client, authRepository, customSkills)
     }
 }

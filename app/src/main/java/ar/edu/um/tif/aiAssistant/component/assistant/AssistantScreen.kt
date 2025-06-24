@@ -65,32 +65,69 @@ fun AssistantScreen(
     val scrollState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
 
-    // Microphone permission state
-    var hasPermission by remember {
-        mutableStateOf(
-            ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) ==
-                    PackageManager.PERMISSION_GRANTED
+    // Required permissions for full functionality
+    val requiredPermissions = remember {
+        mapOf(
+            Manifest.permission.RECORD_AUDIO to "Micrófono",
+            Manifest.permission.CALL_PHONE to "Llamadas telefónicas",
+            Manifest.permission.READ_CONTACTS to "Contactos"
         )
     }
 
-    // Flag to track if rationale should be shown or if settings need to be opened
-    var showRationaleOrOpenSettings by remember { mutableStateOf(true) }
+    // Permission states
+    var permissionsState by remember {
+        mutableStateOf(
+            requiredPermissions.keys.associateWith { permission ->
+                ContextCompat.checkSelfPermission(context, permission) ==
+                        PackageManager.PERMISSION_GRANTED
+            }
+        )
+    }
 
-    // Permission launcher
-    val permissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission()
-    ) { isGranted ->
-        hasPermission = isGranted
-        if (!isGranted) {
-            // Check if we should show rationale next time or direct to settings
-            showRationaleOrOpenSettings = activity?.shouldShowRequestPermissionRationale(
-                Manifest.permission.RECORD_AUDIO) != false
+    // Flag to track which permissions need rationale or settings
+    var permissionRationales by remember {
+        mutableStateOf(
+            requiredPermissions.keys.associateWith { permission ->
+                activity?.shouldShowRequestPermissionRationale(permission) != false
+            }
+        )
+    }
+
+    // Essential permissions - the assistant needs microphone at minimum
+    val hasEssentialPermissions = permissionsState[Manifest.permission.RECORD_AUDIO] == true
+
+    // Full functionality permissions - calling features need these additional permissions
+    val hasFullPermissions = permissionsState[Manifest.permission.CALL_PHONE] == true &&
+            permissionsState[Manifest.permission.READ_CONTACTS] == true
+
+    // Multiple permissions launcher
+    val multiplePermissionsLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        permissions.forEach { (permission, isGranted) ->
+            permissionsState = permissionsState.toMutableMap().apply {
+                this[permission] = isGranted
+            }
+
+            if (!isGranted) {
+                // Update rationale status for this permission
+                permissionRationales = permissionRationales.toMutableMap().apply {
+                    this[permission] = activity?.shouldShowRequestPermissionRationale(permission) != false
+                }
+            }
         }
     }
 
-    // Initialize AimyBox when permission is granted
-    LaunchedEffect(hasPermission) {
-        if (hasPermission) {
+    // Single permission launcher (for requesting one permission at a time)
+    val singlePermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        // This launcher is used for specific permissions when needed
+    }
+
+    // Initialize AimyBox when essential permissions are granted
+    LaunchedEffect(hasEssentialPermissions) {
+        if (hasEssentialPermissions) {
             val aimyboxApp = context.applicationContext as? AimyboxApplication
             aimyboxApp?.aimybox?.let { aimybox ->
                 viewModel.initializeAimybox(aimybox)
@@ -98,13 +135,13 @@ fun AssistantScreen(
         }
     }
 
-    // Request permission on initial composition if not already granted
+    // Request essential permissions on initial composition if not already granted
     LaunchedEffect(Unit) {
-        if (!hasPermission) {
-            // Check rationale status *before* the first launch as well
-            showRationaleOrOpenSettings = activity?.shouldShowRequestPermissionRationale(
-                Manifest.permission.RECORD_AUDIO) != false
-            permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+        if (!hasEssentialPermissions) {
+            multiplePermissionsLauncher.launch(arrayOf(Manifest.permission.RECORD_AUDIO))
+        } else if (!hasFullPermissions) {
+            // If we have microphone but not call/contacts, show a dialog or ask for those too
+            // (We'll implement this via a Composable dialog)
         }
     }
 
@@ -125,13 +162,13 @@ fun AssistantScreen(
     }
 
     // Voice Assistant Components - Only initialized when permission is granted
-    val aimyboxWidgets = if (hasPermission) {
+    val aimyboxWidgets = if (hasEssentialPermissions) {
         viewModel.widgets?.observeAsState(emptyList())?.value ?: emptyList()
     } else {
         emptyList()
     }
 
-    val aimyboxState = if (hasPermission) {
+    val aimyboxState = if (hasEssentialPermissions) {
         viewModel.aimyboxState?.observeAsState()?.value
     } else {
         null
@@ -181,10 +218,37 @@ fun AssistantScreen(
         }
     }
 
+    // State for showing the additional permissions dialog
+    var showAdditionalPermissionsDialog by remember { mutableStateOf(false) }
+
+    // Check if we need to show dialog for additional permissions
+    LaunchedEffect(hasEssentialPermissions, hasFullPermissions) {
+        if (hasEssentialPermissions && !hasFullPermissions) {
+            // If we have microphone but not call/contacts, set flag to show the dialog
+            showAdditionalPermissionsDialog = true
+        }
+    }
+
+    // Dialog for additional permissions
+    if (showAdditionalPermissionsDialog) {
+        AdditionalPermissionsDialog(
+            onDismiss = { showAdditionalPermissionsDialog = false },
+            onConfirm = {
+                multiplePermissionsLauncher.launch(
+                    arrayOf(
+                        Manifest.permission.READ_CONTACTS,
+                        Manifest.permission.CALL_PHONE
+                    )
+                )
+                showAdditionalPermissionsDialog = false
+            }
+        )
+    }
+
     Scaffold(
         topBar = { AssistantTopBar(navigateBack = navigateBack) },
         bottomBar = {
-            if (hasPermission) {
+            if (hasEssentialPermissions) {
                 AssistantInputBar(
                     isListening = isListening,
                     onMicClick = { viewModel.onAssistantButtonClick() },
@@ -194,7 +258,7 @@ fun AssistantScreen(
             }
         }
     ) { paddingValues ->
-        if (hasPermission) {
+        if (hasEssentialPermissions) {
             AssistantContent(
                 uiState = uiState,
                 uiWidgets = uiWidgets,
@@ -204,8 +268,8 @@ fun AssistantScreen(
             )
         } else {
             PermissionRequestContent(
-                showRationaleOrOpenSettings = showRationaleOrOpenSettings,
-                permissionLauncher = permissionLauncher
+                showRationaleOrOpenSettings = permissionRationales.values.any { it },
+                permissionLauncher = multiplePermissionsLauncher
             )
         }
     }
@@ -452,7 +516,7 @@ private fun AssistantInputBar(
 @Composable
 private fun PermissionRequestContent(
     showRationaleOrOpenSettings: Boolean,
-    permissionLauncher: androidx.activity.result.ActivityResultLauncher<String>
+    permissionLauncher: androidx.activity.result.ActivityResultLauncher<Array<String>>
 ) {
     val context = LocalContext.current
 
@@ -467,16 +531,27 @@ private fun PermissionRequestContent(
         val (explanationText, buttonText, buttonAction) = if (showRationaleOrOpenSettings) {
             // Need to request again or show rationale
             Triple(
-                "Microphone permission is required to use the voice assistant.",
-                "Grant Permission",
-                { permissionLauncher.launch(Manifest.permission.RECORD_AUDIO) }
+                "El asistente de voz necesita permisos para funcionar correctamente.\n\n" +
+                "• Micrófono: Para escuchar tus comandos de voz\n" +
+                "• Contactos: Para llamar a tus contactos\n" +
+                "• Teléfono: Para realizar llamadas",
+                "Otorgar Permisos",
+                {
+                    permissionLauncher.launch(
+                        arrayOf(
+                            Manifest.permission.RECORD_AUDIO,
+                            Manifest.permission.READ_CONTACTS,
+                            Manifest.permission.CALL_PHONE
+                        )
+                    )
+                }
             )
         } else {
             // Permanently denied, direct to settings
             Triple(
-                "Microphone permission has been permanently denied. " +
-                        "Please enable it in app settings to use the voice assistant.",
-                "Open Settings",
+                "Algunos permisos han sido denegados permanentemente. " +
+                "Por favor, actívalos en la configuración de la aplicación para utilizar todas las funciones del asistente.",
+                "Abrir Configuración",
                 {
                     val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
                     val uri = Uri.fromParts("package", context.packageName, null)
@@ -486,23 +561,80 @@ private fun PermissionRequestContent(
             )
         }
 
+        Icon(
+            painter = painterResource(id = R.drawable.assistant_mic_icon_24),
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(64.dp)
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
         Text(
             text = explanationText,
             color = MaterialTheme.colorScheme.onBackground,
             fontSize = MaterialTheme.typography.bodyLarge.fontSize,
             textAlign = TextAlign.Center
         )
+
         Spacer(modifier = Modifier.height(16.dp))
+
         Button(onClick = buttonAction) {
             Text(buttonText)
         }
+
         Spacer(modifier = Modifier.height(8.dp))
+
         Text(
-            text = "The voice assistant cannot function without this permission.",
+            text = "El asistente requiere al menos el permiso del micrófono para funcionar.",
             color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
             textAlign = TextAlign.Center
         )
     }
+}
+
+@Composable
+private fun AdditionalPermissionsDialog(
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(text = "Permisos adicionales")
+        },
+        text = {
+            Column {
+                Text(
+                    text = "Para poder llamar a tus contactos, necesitamos permisos adicionales:",
+                    fontSize = MaterialTheme.typography.bodyLarge.fontSize
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text("• Contactos: Para buscar información de tus contactos")
+                Text("• Teléfono: Para realizar llamadas directamente")
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    "Sin estos permisos, no podrás usar comandos como 'Llamar a Juan' o 'Llama a mamá'.",
+                    fontSize = MaterialTheme.typography.bodyMedium.fontSize,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = onConfirm
+            ) {
+                Text("Conceder permisos")
+            }
+        },
+        dismissButton = {
+            TextButton(
+                onClick = onDismiss
+            ) {
+                Text("Ahora no")
+            }
+        }
+    )
 }
 
 // AimyBox Widget Composables

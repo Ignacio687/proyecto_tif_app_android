@@ -4,6 +4,7 @@ import ar.edu.um.tif.aiAssistant.core.data.model.ApiAssistantModels.ServerRespon
 import ar.edu.um.tif.aiAssistant.core.data.model.ApiAssistantModels.UserRequest
 import ar.edu.um.tif.aiAssistant.core.data.model.ApiConversationModels.ConversationHistoryResponse
 import ar.edu.um.tif.aiAssistant.core.data.repository.AuthRepository
+import com.justai.aimybox.Aimybox
 import com.justai.aimybox.api.DialogApi
 import com.justai.aimybox.core.CustomSkill
 import com.justai.aimybox.model.Response
@@ -22,6 +23,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import javax.inject.Inject
 import javax.inject.Singleton
+import android.util.Log
 
 /**
  * Client for handling all assistant-related API calls.
@@ -31,15 +33,33 @@ import javax.inject.Singleton
 @Singleton
 class AssistantApiClient @Inject constructor(
     private val client: HttpClient,
-    private val authRepository: AuthRepository
-) : DialogApi<UserRequest, Response>() {
+    private val authRepository: AuthRepository,
+    customSkills: LinkedHashSet<CustomSkill<*, *>>
+) : DialogApi<UserRequest, ServerResponse>() {
+
+    // Implementation of the abstract property from DialogApi with the correct type parameters
+    // We use the skills passed in the constructor, with proper casting
+    @Suppress("UNCHECKED_CAST")
+    override val customSkills = customSkills as LinkedHashSet<CustomSkill<UserRequest, ServerResponse>>
 
     // API endpoints
     private val apiPath = "/api/v1"
     private val assistantEndpoint = "$apiPath/assistant"
     private val conversationsEndpoint = "$apiPath/conversations"
 
-    override val customSkills: LinkedHashSet<CustomSkill<UserRequest, Response>> = linkedSetOf()
+    companion object {
+        private const val TAG = "AssistantApiClient"
+    }
+
+    // LLM Response type for internal use
+    data class LLMResponse(
+        val text: String,
+        override val action: String? = null,
+        override val question: Boolean? = false,
+        override val intent: String? = null,
+        override val replies: List<Reply> = listOf(TextReply(null, text)),
+        override val query: String? = null
+    ) : Response
 
     override fun createRequest(query: String): UserRequest = UserRequest(userReq = query)
 
@@ -47,13 +67,13 @@ class AssistantApiClient @Inject constructor(
      * Implementation of the DialogApi interface method.
      * Gets the token directly from AuthRepository.
      */
-    override suspend fun send(request: UserRequest): Response {
-        // Get token from AuthRepository using the new getAccessToken method
+    override suspend fun send(request: UserRequest): ServerResponse {
+        // Get token from AuthRepository
         val token = authRepository.getAccessToken()
-            ?: return LLMResponse(
-                query = request.userReq,
-                replies = listOf(TextReply(null, "Not authenticated. Please log in first.")),
-                question = false
+            ?: return ServerResponse(
+                serverReply = "Not authenticated. Please log in first.",
+                appParams = listOf(mapOf("question" to false)),
+                skills = null
             )
 
         val response = runCatching {
@@ -65,19 +85,13 @@ class AssistantApiClient @Inject constructor(
                 }
                 setBody(request)
             }.body<ServerResponse>()
-        }.getOrNull() ?: return LLMResponse(
-            query = request.userReq,
-            replies = listOf(TextReply(null, "Failed to connect to assistant")),
-            question = false
+        }.getOrNull() ?: return ServerResponse(
+            serverReply = "Failed to connect to assistant",
+            appParams = listOf(mapOf("question" to false)),
+            skills = null
         )
 
-        val question = response.appParams?.firstOrNull()?.get("question") ?: false
-
-        return LLMResponse(
-            query = request.userReq,
-            replies = listOf(TextReply(null, response.serverReply)),
-            question = question
-        )
+        return response
     }
 
     /**
@@ -99,17 +113,5 @@ class AssistantApiClient @Inject constructor(
             }
             response.body<ConversationHistoryResponse>()
         }
-    }
-
-    /**
-     * Response model for the assistant API integrating with Aimybox.
-     */
-    class LLMResponse(
-        override val query: String?,
-        override val replies: List<Reply>,
-        override val question: Boolean? = false
-    ) : Response {
-        override val action: String? = null
-        override val intent: String? = null
     }
 }

@@ -2,7 +2,9 @@ package ar.edu.um.tif.aiAssistant.core
 
 import android.app.Application
 import android.content.Context
+import android.util.Log
 import ar.edu.um.tif.aiAssistant.core.client.AssistantApiClient
+import ar.edu.um.tif.aiAssistant.core.skills.CallContactSkill
 import com.justai.aimybox.Aimybox
 import com.justai.aimybox.components.AimyboxProvider
 import com.justai.aimybox.core.Config
@@ -13,14 +15,18 @@ import com.justai.aimybox.speechkit.kaldi.KaldiVoiceTrigger
 import dagger.hilt.android.HiltAndroidApp
 import java.util.Locale
 import javax.inject.Inject
+import javax.inject.Provider
 
 @HiltAndroidApp
 class AimyboxApplication : Application(), AimyboxProvider {
 
+    // Use Provider to avoid circular dependency issues during initialization
     @Inject
-    lateinit var assistantApiClient: AssistantApiClient
+    lateinit var assistantApiClientProvider: Provider<AssistantApiClient>
 
     companion object {
+        private const val TAG = "AimyboxApplication"
+
         init {
             System.setProperty("jna.nosys", "true")
         }
@@ -41,12 +47,10 @@ class AimyboxApplication : Application(), AimyboxProvider {
 
         val textToSpeech = GooglePlatformTextToSpeech(context, locale)
 
-        // val speechToText = GooglePlatformSpeechToText(context, locale, preferOffline = false, recognitionTimeout = 30000L)
-
         val speechToText = KaldiSpeechToText(assets)
 
-        // Use the injected assistantApiClient as the dialog API
-        val dialogApi = assistantApiClient
+        // Get the AssistantApiClient from the provider
+        val dialogApi = assistantApiClientProvider.get()
 
         val aimyboxConfig = Config.Companion.create(speechToText, textToSpeech, dialogApi) {
             this.voiceTrigger = voiceTrigger

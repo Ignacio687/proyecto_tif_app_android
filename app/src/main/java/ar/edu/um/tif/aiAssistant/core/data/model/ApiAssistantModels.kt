@@ -1,6 +1,9 @@
 package ar.edu.um.tif.aiAssistant.core.data.model
 
 import com.justai.aimybox.model.Request
+import com.justai.aimybox.model.Response
+import com.justai.aimybox.model.reply.Reply
+import com.justai.aimybox.model.reply.TextReply
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -31,6 +34,20 @@ object ApiAssistantModels {
         @SerialName("app_params")
         val appParams: List<Map<String, Boolean>>? = null,
         val skills: List<Skill>? = null
-    )
-}
+    ) : Response {
+        override val action: String?
+            get() = skills?.firstOrNull()?.action
 
+        override val question: Boolean?
+            get() = appParams?.firstOrNull()?.get("question")
+
+        override val intent: String?
+            get() = skills?.firstOrNull()?.name
+
+        override val replies: List<Reply>
+            get() = listOf(TextReply(null, serverReply))
+
+        override val query: String?
+            get() = null
+    }
+}
