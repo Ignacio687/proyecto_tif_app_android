@@ -28,6 +28,13 @@ fun HomeScreen(
         }
     }
 
+    // Handle authentication errors
+    LaunchedEffect(uiState.authError) {
+        if (uiState.authError) {
+            navigateToLogin()
+        }
+    }
+
     Surface(
         modifier = Modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background

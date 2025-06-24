@@ -18,6 +18,19 @@ android {
     namespace = "ar.edu.um.tif.aiAssistant"
     compileSdk = 35
 
+    signingConfigs {
+        create("release") {
+            // Only configure signing if keystore file is provided
+            val keystorePath = project.findProperty("RELEASE_STORE_FILE") as String?
+            if (keystorePath != null && keystorePath.isNotEmpty()) {
+                storeFile = file(keystorePath)
+                storePassword = project.findProperty("RELEASE_STORE_PASSWORD") as String? ?: ""
+                keyAlias = project.findProperty("RELEASE_KEY_ALIAS") as String? ?: ""
+                keyPassword = project.findProperty("RELEASE_KEY_PASSWORD") as String? ?: ""
+            }
+        }
+    }
+
     defaultConfig {
         applicationId = "ar.edu.um.tif.aiAssistant"
         minSdk = 24
@@ -36,12 +49,14 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
             buildConfigField("String", "API_BASE_URL", "\"https://yourdomain.com/api\"")
+            signingConfig = signingConfigs.getByName("release")
         }
         debug {
             buildConfigField("String", "API_BASE_URL", "\"http://10.0.2.2:8000\"")

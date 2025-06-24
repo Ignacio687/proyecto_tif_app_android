@@ -8,6 +8,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import ar.edu.um.tif.aiAssistant.core.data.model.ApiAuthModels
 import ar.edu.um.tif.aiAssistant.core.client.AuthApiClient
+import ar.edu.um.tif.aiAssistant.core.customException.UnauthorizedAccessException
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.firstOrNull
@@ -24,21 +25,32 @@ class AuthRepository @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
     companion object {
-        private val TOKEN_KEY = stringPreferencesKey("jwt_token")
+        private val ACCESS_TOKEN_KEY = stringPreferencesKey("access_token")
+        private val REFRESH_TOKEN_KEY = stringPreferencesKey("refresh_token")
         private val USER_ID_KEY = stringPreferencesKey("user_id")
         private val EMAIL_KEY = stringPreferencesKey("email")
         private val NAME_KEY = stringPreferencesKey("name")
         private val IS_VERIFIED_KEY = stringPreferencesKey("is_verified")
     }
 
-    // Get the stored JWT token as a Flow
-    val authToken: Flow<String?> = context.dataStore.data.map { preferences ->
-        preferences[TOKEN_KEY]
+    // Get the stored access token as a Flow
+    val accessToken: Flow<String?> = context.dataStore.data.map { preferences ->
+        preferences[ACCESS_TOKEN_KEY]
     }
 
-    // Get the current auth token (suspending function)
-    suspend fun getAuthToken(): String? {
-        return authToken.firstOrNull()
+    // Get the stored refresh token as a Flow
+    val refreshToken: Flow<String?> = context.dataStore.data.map { preferences ->
+        preferences[REFRESH_TOKEN_KEY]
+    }
+
+    // Get the current access token (suspending function)
+    suspend fun getAccessToken(): String? {
+        return accessToken.firstOrNull()
+    }
+
+    // Get the current refresh token (suspending function)
+    suspend fun getRefreshToken(): String? {
+        return refreshToken.firstOrNull()
     }
 
     // Get the stored user ID
@@ -61,10 +73,18 @@ class AuthRepository @Inject constructor(
         preferences[IS_VERIFIED_KEY]
     }
 
-    // Method to save auth token
-    suspend fun saveAuthToken(token: String) {
+    // Method to save tokens
+    suspend fun saveTokens(accessToken: String, refreshToken: String) {
         context.dataStore.edit { preferences ->
-            preferences[TOKEN_KEY] = token
+            preferences[ACCESS_TOKEN_KEY] = accessToken
+            preferences[REFRESH_TOKEN_KEY] = refreshToken
+        }
+    }
+
+    // Method to save only access token
+    suspend fun saveAccessToken(token: String) {
+        context.dataStore.edit { preferences ->
+            preferences[ACCESS_TOKEN_KEY] = token
         }
     }
 
@@ -73,7 +93,7 @@ class AuthRepository @Inject constructor(
         val result = authClient.authenticateWithGoogle(ApiAuthModels.GoogleAuthRequest(token))
 
         result.onSuccess { authResponse ->
-            authResponse.accessToken.let { saveAuthToken(it) }
+            saveTokens(authResponse.accessToken, authResponse.refreshToken)
             saveUserData(authResponse)
         }
 
@@ -102,8 +122,21 @@ class AuthRepository @Inject constructor(
         )
 
         result.onSuccess { authResponse ->
-            authResponse.accessToken.let { saveAuthToken(it) }
+            saveTokens(authResponse.accessToken, authResponse.refreshToken)
             saveUserData(authResponse)
+        }
+
+        return result
+    }
+
+    // Refresh token
+    suspend fun refreshTokens(): Result<ApiAuthModels.AuthResponse> {
+        val refreshToken = getRefreshToken() ?: return Result.failure(UnauthorizedAccessException("No refresh token available"))
+
+        val result = authClient.refreshToken(ApiAuthModels.RefreshTokenRequest(refreshToken))
+
+        result.onSuccess { authResponse ->
+            saveTokens(authResponse.accessToken, authResponse.refreshToken)
         }
 
         return result
@@ -137,7 +170,7 @@ class AuthRepository @Inject constructor(
     // Verify token
     suspend fun verifyToken(token: String? = null): Result<ApiAuthModels.TokenVerificationResponse> {
         // Use provided token or get from storage
-        val authToken = token ?: getAuthToken() ?: return Result.failure(IllegalStateException("No token available"))
+        val authToken = token ?: getAccessToken() ?: return Result.failure(IllegalStateException("No token available"))
         return authClient.verifyToken(authToken)
     }
 
@@ -155,7 +188,8 @@ class AuthRepository @Inject constructor(
     suspend fun clearAuthData() {
         // Clear all data from DataStore
         context.dataStore.edit { preferences ->
-            preferences.remove(TOKEN_KEY)
+            preferences.remove(ACCESS_TOKEN_KEY)
+            preferences.remove(REFRESH_TOKEN_KEY)
             preferences.remove(USER_ID_KEY)
             preferences.remove(EMAIL_KEY)
             preferences.remove(NAME_KEY)

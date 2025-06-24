@@ -3,7 +3,10 @@ package ar.edu.um.tif.aiAssistant.component.splash
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -24,11 +27,11 @@ fun SplashScreen() {
             .background(MaterialTheme.colorScheme.background),
         contentAlignment = Alignment.Center
     ) {
-        // App logo
+        // App logo using the same launcher icon that users see when the app is opening
         Image(
-            painter = painterResource(id = R.drawable.ic_launcher_foreground),
+            painter = painterResource(id = R.drawable.app_icon_v3),
             contentDescription = "App Logo",
-            modifier = Modifier.size(200.dp)
+            modifier = Modifier.size(220.dp)
         )
 
         // Loading indicator at the bottom
@@ -39,9 +42,13 @@ fun SplashScreen() {
             CircularProgressIndicator(
                 modifier = Modifier
                     .size(50.dp)
-                    .align(Alignment.Center),
+                    .align(Alignment.Center)
+                    .padding(bottom = 16.dp),
                 color = MaterialTheme.colorScheme.primary
             )
+
+            // Add spacer for bottom padding
+            Spacer(modifier = Modifier.height(32.dp))
         }
     }
 }

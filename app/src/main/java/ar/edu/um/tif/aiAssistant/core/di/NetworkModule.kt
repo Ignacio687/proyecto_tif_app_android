@@ -1,8 +1,10 @@
 package ar.edu.um.tif.aiAssistant.core.di
 
 import ar.edu.um.tif.aiAssistant.BuildConfig
+import ar.edu.um.tif.aiAssistant.core.auth.AuthManager
 import ar.edu.um.tif.aiAssistant.core.client.AuthApiClient
 import ar.edu.um.tif.aiAssistant.core.client.AssistantApiClient
+import ar.edu.um.tif.aiAssistant.core.customException.UnauthorizedAccessException
 import ar.edu.um.tif.aiAssistant.core.data.repository.AuthRepository
 import dagger.Module
 import dagger.Provides
@@ -11,16 +13,29 @@ import dagger.hilt.components.SingletonComponent
 import io.ktor.client.*
 import io.ktor.client.engine.okhttp.*
 import io.ktor.client.plugins.*
+import io.ktor.client.plugins.auth.*
+import io.ktor.client.plugins.auth.providers.*
 import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.client.plugins.logging.*
 import io.ktor.client.request.header
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
-import io.ktor.client.statement.bodyAsText
+import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.modules.SerializersModule
 import okhttp3.logging.HttpLoggingInterceptor
+import javax.inject.Qualifier
 import javax.inject.Singleton
+import javax.inject.Provider
+
+// Custom qualifiers to distinguish between the two HttpClient instances
+@Qualifier
+@Retention(AnnotationRetention.BINARY)
+annotation class BaseHttpClient
+
+@Qualifier
+@Retention(AnnotationRetention.BINARY)
+annotation class AuthenticatedHttpClient
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -42,9 +57,14 @@ object NetworkModule {
         }
     }
 
+    /**
+     * Provides a basic HttpClient without auth features.
+     * This breaks the dependency cycle by not depending on AuthRepository or AuthManager.
+     */
     @Provides
     @Singleton
-    fun provideHttpClient(json: Json): HttpClient {
+    @BaseHttpClient
+    fun provideBaseHttpClient(json: Json): HttpClient {
         return HttpClient(OkHttp) {
             // Engine configuration
             engine {
@@ -118,15 +138,84 @@ object NetworkModule {
         }
     }
 
+    /**
+     * Provides an authenticated HttpClient with token refresh capabilities.
+     * Uses Provider<> to break dependency cycles.
+     */
     @Provides
     @Singleton
-    fun provideAuthApiClient(client: HttpClient, json: Json): AuthApiClient {
+    @AuthenticatedHttpClient
+    fun provideAuthenticatedHttpClient(
+        @BaseHttpClient baseClient: HttpClient,
+        authRepositoryProvider: Provider<AuthRepository>,
+        authManagerProvider: Provider<AuthManager>
+    ): HttpClient {
+        return baseClient.config {
+            // Install Auth plugin for token refresh
+            install(Auth) {
+                bearer {
+                    // Load the token when the plugin is installed
+                    loadTokens {
+                        val authRepository = authRepositoryProvider.get()
+                        val accessToken = runBlocking { authRepository.getAccessToken() }
+                        val refreshToken = runBlocking { authRepository.getRefreshToken() }
+
+                        if (accessToken != null && refreshToken != null) {
+                            BearerTokens(accessToken, refreshToken)
+                        } else {
+                            null
+                        }
+                    }
+
+                    // Send the token with each request
+                    sendWithoutRequest { request ->
+                        // Don't send token for authentication requests (login, register, refresh)
+                        !request.url.encodedPath.contains("/api/v1/auth/login") &&
+                        !request.url.encodedPath.contains("/api/v1/auth/register") &&
+                        !request.url.encodedPath.contains("/api/v1/auth/google") &&
+                        !request.url.encodedPath.contains("/api/v1/auth/refresh")
+                    }
+
+                    // Handle 401 responses by refreshing the token using AuthManager
+                    refreshTokens {
+                        try {
+                            val authManager = authManagerProvider.get()
+                            // Use the centralized AuthManager for token refresh
+                            val refreshSuccessful = runBlocking { authManager.verifyAuthentication() }
+
+                            if (refreshSuccessful) {
+                                val authRepository = authRepositoryProvider.get()
+                                // Get the updated tokens
+                                val newAccessToken = runBlocking { authRepository.getAccessToken() }
+                                val newRefreshToken = runBlocking { authRepository.getRefreshToken() }
+
+                                if (newAccessToken != null && newRefreshToken != null) {
+                                    BearerTokens(newAccessToken, newRefreshToken)
+                                } else {
+                                    throw UnauthorizedAccessException("Token refresh failed: tokens are null")
+                                }
+                            } else {
+                                throw UnauthorizedAccessException("Token refresh failed")
+                            }
+                        } catch (e: Exception) {
+                            // The AuthManager will emit AUTH_ERROR event which will be handled by ViewModels
+                            throw e
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    @Provides
+    @Singleton
+    fun provideAuthApiClient(@BaseHttpClient client: HttpClient, json: Json): AuthApiClient {
         return AuthApiClient(client, json)
     }
 
     @Provides
     @Singleton
-    fun provideAssistantApiClient(client: HttpClient, authRepository: AuthRepository): AssistantApiClient {
+    fun provideAssistantApiClient(@AuthenticatedHttpClient client: HttpClient, authRepository: AuthRepository): AssistantApiClient {
         return AssistantApiClient(client, authRepository)
     }
 }

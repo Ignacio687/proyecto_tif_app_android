@@ -60,6 +60,8 @@ object ApiAuthModels {
     data class AuthResponse(
         @SerialName("access_token")
         val accessToken: String,
+        @SerialName("refresh_token")
+        val refreshToken: String,
         @SerialName("token_type")
         val tokenType: String = "bearer",
         @SerialName("user_id")
@@ -68,6 +70,12 @@ object ApiAuthModels {
         val name: String? = null,
         @SerialName("is_verified")
         val isVerified: Boolean
+    )
+
+    @Serializable
+    data class RefreshTokenRequest(
+        @SerialName("refresh_token")
+        val refreshToken: String
     )
 
     @Serializable

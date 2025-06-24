@@ -5,6 +5,7 @@ import androidx.annotation.RequiresPermission
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import ar.edu.um.tif.aiAssistant.core.auth.AuthManager
 import ar.edu.um.tif.aiAssistant.core.data.model.ApiAssistantModels.UserRequest
 import ar.edu.um.tif.aiAssistant.core.data.repository.AssistantRepository
 import ar.edu.um.tif.aiAssistant.core.client.AssistantApiClient
@@ -39,7 +40,8 @@ data class AssistantUiState(
 @HiltViewModel
 class AssistantViewModel @Inject constructor(
     private val assistantRepository: AssistantRepository,
-    private val assistantApiClient: AssistantApiClient
+    private val assistantApiClient: AssistantApiClient,
+    private val authManager: AuthManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AssistantUiState())
@@ -60,6 +62,23 @@ class AssistantViewModel @Inject constructor(
     init {
         // Load conversation history when ViewModel is created
         loadConversationHistory()
+        // Observe authentication events
+        observeAuthEvents()
+    }
+
+    private fun observeAuthEvents() {
+        viewModelScope.launch {
+            authManager.authEvents.collect { event ->
+                when (event) {
+                    AuthManager.AuthEvent.AUTH_ERROR -> {
+                        _uiState.update { it.copy(authError = true) }
+                    }
+                    AuthManager.AuthEvent.LOGGED_OUT -> {
+                        // We don't need to do anything with LOGGED_OUT in AssistantScreen
+                    }
+                }
+            }
+        }
     }
 
     /**
@@ -114,13 +133,15 @@ class AssistantViewModel @Inject constructor(
         _aimyboxDelegate?.setInitialPhrase(text)
     }
 
+    /**
+     * Send a text message to the assistant
+     */
     fun sendMessage(message: String) {
         if (message.isBlank()) return
 
         // Add user message to the chat
         addMessage(ChatMessage(content = message, isFromUser = true))
 
-        // Send to AI assistant
         viewModelScope.launch {
             try {
                 _uiState.update { currentState -> currentState.copy(isLoading = true, errorMessage = null) }
@@ -141,19 +162,29 @@ class AssistantViewModel @Inject constructor(
 
                 _uiState.update { currentState -> currentState.copy(isLoading = false, errorMessage = null) }
             } catch (e: Exception) {
-                _uiState.update { currentState -> currentState.copy(
-                    isLoading = false,
-                    errorMessage = "Unable to process your request. Please try again later."
-                )}
+                // Check specifically for authentication errors
+                if (e is ar.edu.um.tif.aiAssistant.core.customException.UnauthorizedAccessException) {
+                    // Update UI state to indicate authentication error
+                    _uiState.update { it.copy(
+                        isLoading = false,
+                        authError = true
+                    )}
+                } else {
+                    // Handle other errors as before
+                    _uiState.update { currentState -> currentState.copy(
+                        isLoading = false,
+                        errorMessage = "Unable to process your request. Please try again later."
+                    )}
 
-                // Log the detailed error
-                android.util.Log.e("AssistantViewModel", "Error sending message", e)
+                    // Log the detailed error
+                    android.util.Log.e("AssistantViewModel", "Error sending message", e)
 
-                // Add user-friendly error message to chat
-                addMessage(ChatMessage(
-                    content = "Sorry, I'm having trouble processing your request right now.",
-                    isFromUser = false
-                ))
+                    // Add user-friendly error message to chat
+                    addMessage(ChatMessage(
+                        content = "Sorry, I'm having trouble processing your request right now.",
+                        isFromUser = false
+                    ))
+                }
             }
         }
     }

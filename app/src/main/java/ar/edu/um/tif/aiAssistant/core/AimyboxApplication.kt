@@ -34,12 +34,12 @@ class AimyboxApplication : Application(), AimyboxProvider {
     override val aimybox by lazy { createAimybox(this) }
 
     private fun createAimybox(context: Context): Aimybox {
-        val locale = Locale("es", "ES")
+        val locale = Locale("es", "AR")
         val assets = KaldiAssets.Companion.fromApkAssets(this, "vosk-model-small-es-0.42")
-        val voiceTrigger = KaldiVoiceTrigger(assets, listOf("cortana"))
+        val voiceTrigger = KaldiVoiceTrigger(assets, listOf("che cortana", "che iris"))
 
         val textToSpeech = GooglePlatformTextToSpeech(context, locale)
-        val speechToText = GooglePlatformSpeechToText(context, locale)
+        val speechToText = GooglePlatformSpeechToText(context, locale, preferOffline = false, recognitionTimeout = 30000L)
 
         // Use the injected assistantApiClient as the dialog API
         val dialogApi = assistantApiClient

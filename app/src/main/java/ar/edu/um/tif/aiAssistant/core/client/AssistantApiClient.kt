@@ -48,14 +48,13 @@ class AssistantApiClient @Inject constructor(
      * Gets the token directly from AuthRepository.
      */
     override suspend fun send(request: UserRequest): Response {
-        // Get token from AuthRepository
-        val token = runBlocking {
-            authRepository.authToken.first()
-        } ?: return LLMResponse(
-            query = request.userReq,
-            replies = listOf(TextReply(null, "Not authenticated. Please log in first.")),
-            question = false
-        )
+        // Get token from AuthRepository using the new getAccessToken method
+        val token = authRepository.getAccessToken()
+            ?: return LLMResponse(
+                query = request.userReq,
+                replies = listOf(TextReply(null, "Not authenticated. Please log in first.")),
+                question = false
+            )
 
         val response = runCatching {
             client.post {

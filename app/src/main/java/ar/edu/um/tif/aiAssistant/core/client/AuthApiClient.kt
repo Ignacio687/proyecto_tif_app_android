@@ -8,6 +8,7 @@ import ar.edu.um.tif.aiAssistant.core.data.model.ApiAuthModels.GoogleAuthRequest
 import ar.edu.um.tif.aiAssistant.core.data.model.ApiAuthModels.MessageResponse
 import ar.edu.um.tif.aiAssistant.core.data.model.ApiAuthModels.PasswordResetConfirmRequest
 import ar.edu.um.tif.aiAssistant.core.data.model.ApiAuthModels.PasswordResetRequest
+import ar.edu.um.tif.aiAssistant.core.data.model.ApiAuthModels.RefreshTokenRequest
 import ar.edu.um.tif.aiAssistant.core.data.model.ApiAuthModels.RegisterResponse
 import ar.edu.um.tif.aiAssistant.core.data.model.ApiAuthModels.ResendVerificationRequest
 import ar.edu.um.tif.aiAssistant.core.data.model.ApiAuthModels.TokenVerificationResponse
@@ -139,6 +140,18 @@ class AuthApiClient @Inject constructor(
     suspend fun confirmPasswordReset(request: PasswordResetConfirmRequest): Result<MessageResponse> = runCatching {
         val response = client.post {
             url("$apiPath/confirm-password-reset")
+            contentType(ContentType.Application.Json)
+            setBody(request)
+        }
+        response.body()
+    }
+
+    /**
+     * Refresh authentication tokens using a refresh token
+     */
+    suspend fun refreshToken(request: RefreshTokenRequest): Result<AuthResponse> = runCatching {
+        val response = client.post {
+            url("$apiPath/refresh")
             contentType(ContentType.Application.Json)
             setBody(request)
         }
