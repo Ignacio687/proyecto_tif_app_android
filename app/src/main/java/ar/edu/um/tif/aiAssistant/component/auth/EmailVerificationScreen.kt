@@ -159,7 +159,7 @@ fun EmailVerificationScreen(
                                 .fillMaxWidth()
                                 .padding(vertical = 8.dp),
                             keyboardOptions = KeyboardOptions(
-                                keyboardType = KeyboardType.Number,
+                                keyboardType = KeyboardType.Text,
                                 imeAction = ImeAction.Done
                             ),
                             keyboardActions = KeyboardActions(

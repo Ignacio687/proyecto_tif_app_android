@@ -268,7 +268,7 @@ private fun MessageList(
                 .fillMaxSize()
                 .padding(horizontal = 16.dp),
             state = scrollState,
-            contentPadding = PaddingValues(top = 8.dp, bottom = 80.dp) // Extra padding for FAB
+            contentPadding = PaddingValues(top = 8.dp, bottom = 72.dp) // Increased bottom padding for better spacing
         ) {
             // Add debug logging to check message ordering
             messages.forEachIndexed { index, message ->
@@ -433,13 +433,13 @@ private fun AssistantInputBar(
             ) {
                 if (isListening) {
                     Icon(
-                        painter = painterResource(id = R.drawable.assistant_mic_off_icon_24),
+                        painter = painterResource(id = R.drawable.assistant_mic_icon_24),
                         contentDescription = "Stop",
                         tint = Color.White
                     )
                 } else {
                     Icon(
-                        painter = painterResource(id = R.drawable.assistant_mic_icon_24),
+                        painter = painterResource(id = R.drawable.assistant_mic_off_icon_24),
                         contentDescription = "Start",
                         tint = Color.White
                     )

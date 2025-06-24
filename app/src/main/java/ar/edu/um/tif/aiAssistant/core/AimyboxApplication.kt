@@ -6,9 +6,9 @@ import ar.edu.um.tif.aiAssistant.core.client.AssistantApiClient
 import com.justai.aimybox.Aimybox
 import com.justai.aimybox.components.AimyboxProvider
 import com.justai.aimybox.core.Config
-import com.justai.aimybox.speechkit.google.platform.GooglePlatformSpeechToText
 import com.justai.aimybox.speechkit.google.platform.GooglePlatformTextToSpeech
 import com.justai.aimybox.speechkit.kaldi.KaldiAssets
+import com.justai.aimybox.speechkit.kaldi.KaldiSpeechToText
 import com.justai.aimybox.speechkit.kaldi.KaldiVoiceTrigger
 import dagger.hilt.android.HiltAndroidApp
 import java.util.Locale
@@ -36,10 +36,14 @@ class AimyboxApplication : Application(), AimyboxProvider {
     private fun createAimybox(context: Context): Aimybox {
         val locale = Locale("es", "AR")
         val assets = KaldiAssets.Companion.fromApkAssets(this, "vosk-model-small-es-0.42")
+
         val voiceTrigger = KaldiVoiceTrigger(assets, listOf("che cortana", "che iris"))
 
         val textToSpeech = GooglePlatformTextToSpeech(context, locale)
-        val speechToText = GooglePlatformSpeechToText(context, locale, preferOffline = false, recognitionTimeout = 30000L)
+
+        // val speechToText = GooglePlatformSpeechToText(context, locale, preferOffline = false, recognitionTimeout = 30000L)
+
+        val speechToText = KaldiSpeechToText(assets)
 
         // Use the injected assistantApiClient as the dialog API
         val dialogApi = assistantApiClient

@@ -112,6 +112,9 @@ fun HomeScreen(
             ) {
                 Text("Logout", fontSize = 16.sp)
             }
+
+            // Add a spacer at the bottom for better spacing
+            Spacer(modifier = Modifier.height(16.dp))
         }
     }
 }
