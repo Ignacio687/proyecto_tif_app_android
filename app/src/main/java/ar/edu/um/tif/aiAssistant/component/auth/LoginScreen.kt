@@ -10,6 +10,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -20,6 +21,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import ar.edu.um.tif.aiAssistant.R
 import ar.edu.um.tif.aiAssistant.ui.theme.AI_AssistantTheme
 
 @Composable
@@ -120,7 +122,15 @@ fun LoginScreen(
                         ),
                         trailingIcon = {
                             IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                                Text(if (passwordVisible) "Hide" else "Show")
+                                Icon(
+                                    painter = painterResource(
+                                        id = if (passwordVisible)
+                                            R.drawable.visibility_24px
+                                        else
+                                            R.drawable.visibility_off_24px
+                                    ),
+                                    contentDescription = if (passwordVisible) "Hide password" else "Show password"
+                                )
                             }
                         },
                         isError = uiState.errorMessage != null
