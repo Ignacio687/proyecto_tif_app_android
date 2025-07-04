@@ -54,7 +54,7 @@ fun EmailVerificationScreen(
         ) {
             // Header
             Text(
-                text = "Verify Your Email",
+                text = "Verifica tu Correo Electrónico",
                 fontSize = 24.sp,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(vertical = 32.dp)
@@ -63,7 +63,7 @@ fun EmailVerificationScreen(
             // If we have the email, display it
             if (!uiState.needsEmailInput && !uiState.email.isNullOrBlank()) {
                 Text(
-                    text = "Email: ${uiState.email}",
+                    text = "Correo: ${uiState.email}",
                     textAlign = TextAlign.Center,
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.primary,
@@ -83,7 +83,7 @@ fun EmailVerificationScreen(
                             .padding(16.dp)
                     ) {
                         Text(
-                            text = "Please enter your email address:",
+                            text = "Por favor, ingresa tu dirección de correo electrónico:",
                             style = MaterialTheme.typography.bodyLarge,
                             modifier = Modifier.padding(bottom = 8.dp)
                         )
@@ -91,7 +91,7 @@ fun EmailVerificationScreen(
                         OutlinedTextField(
                             value = emailInput,
                             onValueChange = { emailInput = it },
-                            label = { Text("Email Address") },
+                            label = { Text("Correo Electrónico") },
                             singleLine = true,
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -122,7 +122,7 @@ fun EmailVerificationScreen(
                                 .padding(top = 8.dp),
                             enabled = emailInput.contains("@")
                         ) {
-                            Text("Confirm Email")
+                            Text("Confirmar Correo")
                         }
                     }
                 }
@@ -134,7 +134,7 @@ fun EmailVerificationScreen(
             if (!uiState.needsEmailInput) {
                 // Instructions
                 Text(
-                    text = "We've sent a verification code to your email. Please enter the code below to verify your account.",
+                    text = "Hemos enviado un código de verificación a tu correo electrónico. Por favor, ingresa el código a continuación para verificar tu cuenta.",
                     textAlign = TextAlign.Center,
                     modifier = Modifier.padding(bottom = 32.dp)
                 )
@@ -153,7 +153,7 @@ fun EmailVerificationScreen(
                         OutlinedTextField(
                             value = verificationCode,
                             onValueChange = { verificationCode = it },
-                            label = { Text("Verification Code") },
+                            label = { Text("Código de Verificación") },
                             singleLine = true,
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -212,34 +212,34 @@ fun EmailVerificationScreen(
                                     color = MaterialTheme.colorScheme.onPrimary
                                 )
                             } else {
-                                Text("Verify Email")
+                                Text("Verificar")
                             }
                         }
 
-                        // Resend Code
+                        // Resend Code Button
                         TextButton(
                             onClick = {
-                                viewModel.resendVerificationCode()
                                 onResendCode()
+                                viewModel.resendVerificationCode()
                             },
                             modifier = Modifier
-                                .align(Alignment.CenterHorizontally)
-                                .padding(top = 16.dp)
+                                .fillMaxWidth()
+                                .padding(top = 8.dp)
                         ) {
-                            Text("Resend Code")
+                            Text("Reenviar Código")
+                        }
+
+                        // Back Button
+                        TextButton(
+                            onClick = onBackClick,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 8.dp)
+                        ) {
+                            Text("Volver")
                         }
                     }
                 }
-            }
-
-            Spacer(modifier = Modifier.weight(1f))
-
-            // Back Button
-            TextButton(
-                onClick = onBackClick,
-                modifier = Modifier.align(Alignment.CenterHorizontally)
-            ) {
-                Text("Back")
             }
         }
     }

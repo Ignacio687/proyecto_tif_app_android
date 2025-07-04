@@ -56,7 +56,7 @@ fun ResetPasswordScreen(
         ) {
             // Header
             Text(
-                text = "Reset Your Password",
+                text = "Restablece tu Contraseña",
                 fontSize = 24.sp,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(vertical = 32.dp)
@@ -64,7 +64,7 @@ fun ResetPasswordScreen(
 
             // Instructions
             Text(
-                text = "Enter the reset code sent to your email and your new password.",
+                text = "Ingresa el código de restablecimiento enviado a tu correo electrónico y tu nueva contraseña.",
                 textAlign = TextAlign.Center,
                 modifier = Modifier.padding(bottom = 32.dp)
             )
@@ -83,7 +83,7 @@ fun ResetPasswordScreen(
                     OutlinedTextField(
                         value = code,
                         onValueChange = { code = it },
-                        label = { Text("Reset Code") },
+                        label = { Text("Código de Restablecimiento") },
                         singleLine = true,
                         modifier = Modifier
                             .fillMaxWidth()
@@ -102,7 +102,7 @@ fun ResetPasswordScreen(
                     OutlinedTextField(
                         value = newPassword,
                         onValueChange = { newPassword = it },
-                        label = { Text("New Password") },
+                        label = { Text("Nueva Contraseña") },
                         singleLine = true,
                         modifier = Modifier
                             .fillMaxWidth()
@@ -124,18 +124,18 @@ fun ResetPasswordScreen(
                                         else
                                             R.drawable.visibility_off_24px
                                     ),
-                                    contentDescription = if (passwordVisible) "Hide password" else "Show password"
+                                    contentDescription = if (passwordVisible) "Ocultar contraseña" else "Mostrar contraseña"
                                 )
                             }
                         },
                         isError = uiState.errorMessage?.contains("password", ignoreCase = true) == true
                     )
 
-                    // Confirm New Password Field
+                    // Confirm Password Field
                     OutlinedTextField(
                         value = confirmPassword,
                         onValueChange = { confirmPassword = it },
-                        label = { Text("Confirm New Password") },
+                        label = { Text("Confirmar Contraseña") },
                         singleLine = true,
                         modifier = Modifier
                             .fillMaxWidth()
@@ -162,22 +162,23 @@ fun ResetPasswordScreen(
                                         else
                                             R.drawable.visibility_off_24px
                                     ),
-                                    contentDescription = if (passwordVisible) "Hide password" else "Show password"
+                                    contentDescription = if (passwordVisible) "Ocultar contraseña" else "Mostrar contraseña"
                                 )
                             }
                         },
-                        isError = newPassword != confirmPassword
+                        isError = newPassword != confirmPassword || uiState.errorMessage?.contains("password", ignoreCase = true) == true
                     )
 
-                    // Password Match Error
-                    if (newPassword != confirmPassword && confirmPassword.isNotEmpty()) {
+                    // Password Mismatch Error
+                    if (newPassword != confirmPassword && newPassword.isNotEmpty() && confirmPassword.isNotEmpty()) {
                         Text(
-                            text = "Passwords do not match",
+                            text = "Las contraseñas no coinciden",
                             color = MaterialTheme.colorScheme.error,
                             style = MaterialTheme.typography.bodySmall,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(start = 16.dp, top = 4.dp)
+                                .padding(top = 4.dp),
+                            textAlign = TextAlign.Start
                         )
                     }
 
@@ -194,7 +195,7 @@ fun ResetPasswordScreen(
                         )
                     }
 
-                    // Reset Password Button
+                    // Reset Button
                     Button(
                         onClick = {
                             if (newPassword == confirmPassword) {
@@ -205,10 +206,7 @@ fun ResetPasswordScreen(
                             .fillMaxWidth()
                             .height(56.dp)
                             .padding(top = 16.dp),
-                        enabled = !uiState.isLoading &&
-                                newPassword == confirmPassword &&
-                                code.isNotBlank() &&
-                                newPassword.isNotBlank()
+                        enabled = !uiState.isLoading && code.isNotBlank() && newPassword.isNotBlank() && newPassword == confirmPassword
                     ) {
                         if (uiState.isLoading) {
                             CircularProgressIndicator(
@@ -216,20 +214,20 @@ fun ResetPasswordScreen(
                                 color = MaterialTheme.colorScheme.onPrimary
                             )
                         } else {
-                            Text("Reset Password")
+                            Text("Restablecer Contraseña")
                         }
                     }
+
+                    // Back Button
+                    TextButton(
+                        onClick = onBackClick,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 8.dp)
+                    ) {
+                        Text("Volver")
+                    }
                 }
-            }
-
-            Spacer(modifier = Modifier.weight(1f))
-
-            // Back Button
-            TextButton(
-                onClick = onBackClick,
-                modifier = Modifier.align(Alignment.CenterHorizontally)
-            ) {
-                Text("Back")
             }
         }
     }

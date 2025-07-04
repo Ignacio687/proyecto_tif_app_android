@@ -1,32 +1,32 @@
 package ar.edu.um.tif.aiAssistant.core.skills
 
-import android.Manifest
 import android.content.Context
 import android.content.Intent
 import android.database.Cursor
 import android.net.Uri
 import android.provider.ContactsContract
 import android.util.Log
-import androidx.annotation.RequiresPermission
+import ar.edu.um.tif.aiAssistant.core.client.AssistantApiClient
+import ar.edu.um.tif.aiAssistant.core.data.model.ApiAssistantModels.Contact
 import ar.edu.um.tif.aiAssistant.core.data.model.ApiAssistantModels.ServerResponse
 import ar.edu.um.tif.aiAssistant.core.data.model.ApiAssistantModels.UserRequest
 import com.justai.aimybox.Aimybox
 import com.justai.aimybox.core.CustomSkill
 import com.justai.aimybox.model.Response
-import com.justai.aimybox.model.TextSpeech
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 import org.json.JSONObject
+import javax.inject.Provider
 
 /**
  * CustomSkill that handles contact calling functionality.
  * This skill will be triggered when the assistant response has a "call_contact" action.
  */
 class CallContactSkill(
-    private val context: Context
+    private val context: Context,
+    private val assistantApiClientProvider: Provider<AssistantApiClient>
 ) : CustomSkill<UserRequest, ServerResponse> {
 
     companion object {
@@ -61,7 +61,6 @@ class CallContactSkill(
         return response.skills?.any { it.action == ACTION_CALL_CONTACT } == true
     }
 
-    @RequiresPermission(Manifest.permission.RECORD_AUDIO)
     override suspend fun onResponse(
         response: ServerResponse,
         aimybox: Aimybox,
@@ -79,40 +78,145 @@ class CallContactSkill(
         val contactName = parseContactName(contactDataJson)
 
         if (contactName.isNullOrBlank()) {
-            // If no contact name provided, inform the user and standby
-            val speech = TextSpeech("No se pudo identificar el contacto a llamar.")
-            aimybox.speak(speech, Aimybox.NextAction.STANDBY)
+            Log.e(TAG, "No contact name could be identified from the data")
+            // Send system message to server instead of speaking directly
+            sendInvalidContactDataMessage(defaultHandler)
             return
         }
 
-        // Find the contact phone number
-        val phoneNumber = withContext(Dispatchers.IO) {
-            findContactPhoneNumber(contactName)
+        // Find the contact and similar contacts
+        val searchResult = withContext(Dispatchers.IO) {
+            findContactsWithSimilarNames(contactName)
         }
 
-        if (phoneNumber.isNullOrBlank()) {
-            // If no phone number found, inform the user and standby
-            val speech = TextSpeech("No se encontró el contacto $contactName o no tiene un número de teléfono.")
-            aimybox.speak(speech, Aimybox.NextAction.STANDBY)
-            return
+        // Check if we found an exact match
+        val exactMatch = searchResult.find { contact ->
+            contact.name.equals(contactName, ignoreCase = true)
         }
 
-        // Call the contact
+        if (exactMatch != null) {
+            // Exact match found, proceed with the call
+            makeCall(exactMatch)
+            // Send success message to server
+            sendCallSuccessMessage(exactMatch.name, defaultHandler)
+        } else if (searchResult.isNotEmpty()) {
+            // No exact match but found similar contacts, send system message to assistant
+            sendContactNotFoundMessage(contactName, searchResult, defaultHandler)
+        } else {
+            // No contacts found at all, send system message to assistant
+            sendNoContactsFoundMessage(contactName, defaultHandler)
+        }
+    }
+
+    /**
+     * Makes a phone call to the specified contact
+     */
+    private fun makeCall(contact: Contact) {
         try {
             val callIntent = Intent(Intent.ACTION_CALL).apply {
-                data = Uri.parse("tel:$phoneNumber")
+                data = Uri.parse("tel:${contact.phoneNumber}")
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK
             }
             context.startActivity(callIntent)
-
-            // Inform the user that the call is being placed
-            val speech = TextSpeech("Llamando a $contactName.")
-            aimybox.speak(speech, Aimybox.NextAction.STANDBY)
+            Log.d(TAG, "Call initiated to ${contact.name} at ${contact.phoneNumber}")
         } catch (e: Exception) {
-            Log.e(TAG, "Error making call: ${e.message}", e)
-            // Handle any exceptions that might occur during the call intent
-            val speech = TextSpeech("No se pudo realizar la llamada. Verifique los permisos de la aplicación.")
-            aimybox.speak(speech, Aimybox.NextAction.STANDBY)
+            Log.e(TAG, "Error making call to ${contact.name}: ${e.message}", e)
+        }
+    }
+
+    /**
+     * Sends a system message to the assistant when contact data is invalid
+     */
+    private suspend fun sendInvalidContactDataMessage(
+        defaultHandler: suspend (Response) -> Unit
+    ) {
+        val systemMessage = "[SYSTEM MESSAGE] No se pudo identificar el contacto a llamar. Los datos del contacto están incompletos o son inválidos."
+
+        Log.d(TAG, "Sending invalid contact data message to server: $systemMessage")
+
+        try {
+            val systemRequest = UserRequest(userReq = systemMessage)
+            val assistantApiClient = assistantApiClientProvider.get()
+            val serverResponse = assistantApiClient.send(systemRequest)
+            defaultHandler(serverResponse)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error sending invalid contact data message to assistant: ${e.message}", e)
+        }
+    }
+
+    /**
+     * Sends a system message to the assistant when a contact is not found but similar contacts exist
+     */
+    private suspend fun sendContactNotFoundMessage(
+        requestedName: String,
+        similarContacts: List<Contact>,
+        defaultHandler: suspend (Response) -> Unit
+    ) {
+        // Create a system message explaining the situation and providing available contacts
+        val contactList = similarContacts.joinToString(", ") { it.name }
+
+        val systemMessage = "[SYSTEM MESSAGE] El contacto '$requestedName' no fue encontrado exactamente. " +
+                "Contactos similares disponibles: $contactList."
+
+        Log.d(TAG, "Sending system message to server: $systemMessage")
+
+        try {
+            val systemRequest = UserRequest(userReq = systemMessage)
+            val assistantApiClient = assistantApiClientProvider.get()
+            val serverResponse = assistantApiClient.send(systemRequest)
+            defaultHandler(serverResponse)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error sending system message to assistant: ${e.message}", e)
+        }
+    }
+
+    /**
+     * Sends a system message to the assistant when no contacts are found at all
+     */
+    private suspend fun sendNoContactsFoundMessage(
+        requestedName: String,
+        defaultHandler: suspend (Response) -> Unit
+    ) {
+        // Get all contacts to send to the server
+        val allContacts = withContext(Dispatchers.IO) {
+            getAllContacts()
+        }
+
+        val contactNamesList = allContacts.joinToString(", ") { it.name }
+
+        val systemMessage = "[SYSTEM MESSAGE] El contacto '$requestedName' no fue encontrado en la lista de contactos. " +
+                "No hay contactos similares disponibles. Lista completa de contactos: $contactNamesList."
+
+        Log.d(TAG, "Sending no contacts found message to server: $systemMessage")
+
+        try {
+            val systemRequest = UserRequest(userReq = systemMessage)
+            val assistantApiClient = assistantApiClientProvider.get()
+            val serverResponse = assistantApiClient.send(systemRequest)
+            defaultHandler(serverResponse)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error sending no contacts found message to assistant: ${e.message}", e)
+        }
+    }
+
+    /**
+     * Sends a success message to the assistant when a call is initiated
+     */
+    private suspend fun sendCallSuccessMessage(
+        contactName: String,
+        defaultHandler: suspend (Response) -> Unit
+    ) {
+        val systemMessage = "[SYSTEM MESSAGE] Llamada iniciada exitosamente a $contactName."
+
+        Log.d(TAG, "Sending call success message to server: $systemMessage")
+
+        try {
+            val systemRequest = UserRequest(userReq = systemMessage)
+            val assistantApiClient = assistantApiClientProvider.get()
+            val serverResponse = assistantApiClient.send(systemRequest)
+            defaultHandler(serverResponse)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error sending call success message to assistant: ${e.message}", e)
         }
     }
 
@@ -150,8 +254,6 @@ class CallContactSkill(
                 Log.d(TAG, "Failed to parse with regex: ${e.message}")
                 null
             }
-            // If all approaches fail, return null
-            ?: null
 
         } catch (e: Exception) {
             Log.e(TAG, "Error parsing contact name: ${e.message}", e)
@@ -160,16 +262,17 @@ class CallContactSkill(
     }
 
     /**
-     * Searches for a contact by name and returns their phone number.
+     * Searches for contacts with names similar to the provided name.
+     * Returns a list of contacts that contain the search term or are similar.
      * @param contactName The name of the contact to search for.
-     * @return The phone number of the contact, or null if not found.
+     * @return A list of contacts with similar names.
      */
-    private fun findContactPhoneNumber(contactName: String): String? {
-        var phoneNumber: String? = null
+    private fun findContactsWithSimilarNames(contactName: String): List<Contact> {
+        val contacts = mutableListOf<Contact>()
         var cursor: Cursor? = null
 
         try {
-            Log.d(TAG, "Searching for contact: $contactName")
+            Log.d(TAG, "Searching for contacts similar to: $contactName")
 
             // Query the contacts database
             val uri = ContactsContract.CommonDataKinds.Phone.CONTENT_URI
@@ -177,6 +280,8 @@ class CallContactSkill(
                 ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
                 ContactsContract.CommonDataKinds.Phone.NUMBER
             )
+
+            // Search for contacts that contain the search term (case insensitive)
             val selection = "${ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME} LIKE ?"
             val selectionArgs = arrayOf("%$contactName%")
 
@@ -184,25 +289,113 @@ class CallContactSkill(
                 uri, projection, selection, selectionArgs, null
             )
 
-            // Find the first matching contact
+            // Collect all matching contacts
             if (cursor?.moveToFirst() == true) {
                 val nameIndex = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME)
                 val numberIndex = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER)
 
                 if (nameIndex != -1 && numberIndex != -1) {
-                    val name = cursor.getString(nameIndex)
-                    phoneNumber = cursor.getString(numberIndex)
-                    Log.d(TAG, "Found contact: $name with number: $phoneNumber")
+                    do {
+                        val name = cursor.getString(nameIndex)
+                        val phoneNumber = cursor.getString(numberIndex)
+
+                        if (!name.isNullOrBlank() && !phoneNumber.isNullOrBlank()) {
+                            contacts.add(Contact(name, phoneNumber))
+                            Log.d(TAG, "Found similar contact: $name")
+                        }
+                    } while (cursor.moveToNext())
                 }
-            } else {
-                Log.d(TAG, "No contacts found matching: $contactName")
             }
+
+            // If no partial matches found, try a broader search (first word match)
+            if (contacts.isEmpty() && contactName.contains(" ")) {
+                val firstWord = contactName.split(" ").first()
+                cursor?.close()
+
+                val broadSelection = "${ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME} LIKE ?"
+                val broadSelectionArgs = arrayOf("%$firstWord%")
+
+                cursor = context.contentResolver.query(
+                    uri, projection, broadSelection, broadSelectionArgs, null
+                )
+
+                if (cursor?.moveToFirst() == true) {
+                    val nameIndex = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME)
+                    val numberIndex = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER)
+
+                    if (nameIndex != -1 && numberIndex != -1) {
+                        do {
+                            val name = cursor.getString(nameIndex)
+                            val phoneNumber = cursor.getString(numberIndex)
+
+                            if (!name.isNullOrBlank() && !phoneNumber.isNullOrBlank()) {
+                                contacts.add(Contact(name, phoneNumber))
+                                Log.d(TAG, "Found broad match contact: $name")
+                            }
+                        } while (cursor.moveToNext() && contacts.size < 5) // Limit to 5 contacts
+                    }
+                }
+            }
+
+            Log.d(TAG, "Found ${contacts.size} similar contacts")
         } catch (e: Exception) {
-            Log.e(TAG, "Error finding contact: ${e.message}", e)
+            Log.e(TAG, "Error finding similar contacts: ${e.message}", e)
         } finally {
             cursor?.close()
         }
 
-        return phoneNumber
+        // Remove duplicates and limit results
+        return contacts.distinctBy { it.name }.take(5)
+    }
+
+    /**
+     * Gets all contacts from the device
+     * @return A list of all contacts with names only
+     */
+    private fun getAllContacts(): List<Contact> {
+        val contacts = mutableListOf<Contact>()
+        var cursor: Cursor? = null
+
+        try {
+            Log.d(TAG, "Retrieving all contacts")
+
+            // Query the contacts database
+            val uri = ContactsContract.CommonDataKinds.Phone.CONTENT_URI
+            val projection = arrayOf(
+                ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
+                ContactsContract.CommonDataKinds.Phone.NUMBER
+            )
+
+            cursor = context.contentResolver.query(
+                uri, projection, null, null,
+                "${ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME} ASC"
+            )
+
+            // Collect all contacts
+            if (cursor?.moveToFirst() == true) {
+                val nameIndex = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME)
+                val numberIndex = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER)
+
+                if (nameIndex != -1 && numberIndex != -1) {
+                    do {
+                        val name = cursor.getString(nameIndex)
+                        val phoneNumber = cursor.getString(numberIndex)
+
+                        if (!name.isNullOrBlank() && !phoneNumber.isNullOrBlank()) {
+                            contacts.add(Contact(name, phoneNumber))
+                        }
+                    } while (cursor.moveToNext())
+                }
+            }
+
+            Log.d(TAG, "Retrieved ${contacts.size} total contacts")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error retrieving all contacts: ${e.message}", e)
+        } finally {
+            cursor?.close()
+        }
+
+        // Remove duplicates by name and return
+        return contacts.distinctBy { it.name }
     }
 }

@@ -48,7 +48,7 @@ fun ForgotPasswordScreen(
         ) {
             // Header
             Text(
-                text = "Reset Password",
+                text = "Restablecer Contraseña",
                 fontSize = 24.sp,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(vertical = 32.dp)
@@ -56,7 +56,7 @@ fun ForgotPasswordScreen(
 
             // Instructions
             Text(
-                text = "Enter your email address and we'll send you a code to reset your password.",
+                text = "Ingresa tu dirección de correo electrónico y te enviaremos un código para restablecer tu contraseña.",
                 textAlign = TextAlign.Center,
                 modifier = Modifier.padding(bottom = 32.dp)
             )
@@ -75,7 +75,7 @@ fun ForgotPasswordScreen(
                     OutlinedTextField(
                         value = email,
                         onValueChange = { email = it },
-                        label = { Text("Email") },
+                        label = { Text("Correo Electrónico") },
                         singleLine = true,
                         modifier = Modifier
                             .fillMaxWidth()
@@ -121,20 +121,20 @@ fun ForgotPasswordScreen(
                                 color = MaterialTheme.colorScheme.onPrimary
                             )
                         } else {
-                            Text("Send Reset Code")
+                            Text("Enviar Código")
                         }
                     }
+
+                    // Back Button
+                    TextButton(
+                        onClick = onBackClick,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 8.dp)
+                    ) {
+                        Text("Volver")
+                    }
                 }
-            }
-
-            Spacer(modifier = Modifier.weight(1f))
-
-            // Back Button
-            TextButton(
-                onClick = onBackClick,
-                modifier = Modifier.align(Alignment.CenterHorizontally)
-            ) {
-                Text("Back to Login")
             }
         }
     }

@@ -42,7 +42,7 @@ class EmailVerificationViewModel @Inject constructor(
     fun verifyEmail(code: String) {
         if (code.isBlank()) {
             _uiState.update { it.copy(
-                errorMessage = "Verification code cannot be empty",
+                errorMessage = "El código de verificación no puede estar vacío",
                 isLoading = false
             )}
             return
@@ -61,12 +61,12 @@ class EmailVerificationViewModel @Inject constructor(
                                 isVerified = true,
                                 isLoading = false,
                                 errorMessage = null,
-                                successMessage = response.message ?: "Email successfully verified!"
+                                successMessage = response.message ?: "¡Correo electrónico verificado con éxito!"
                             )}
                         } else {
                             _uiState.update { it.copy(
                                 isLoading = false,
-                                errorMessage = "Verification failed. Please try again."
+                                errorMessage = "La verificación falló. Por favor, inténtalo de nuevo."
                             )}
                         }
                     },
@@ -77,12 +77,12 @@ class EmailVerificationViewModel @Inject constructor(
                         // Provide a user-friendly error message
                         val errorMessage = when {
                             exception.message?.contains("Invalid or expired verification code") == true ->
-                                "Your verification code is invalid or has expired. Please request a new code."
+                                "Tu código de verificación es inválido o ha expirado. Por favor, solicita un nuevo código."
                             exception.message?.contains("400") == true ->
-                                "Invalid verification code. Please check and try again."
+                                "Código de verificación inválido. Por favor, revisa e inténtalo de nuevo."
                             exception.message?.contains("404") == true ->
-                                "Email not found or code expired. Please try registering again."
-                            else -> "Verification failed. Please try again later."
+                                "Correo no encontrado o código expirado. Por favor, intenta registrarte de nuevo."
+                            else -> "La verificación falló. Por favor, inténtalo más tarde."
                         }
 
                         _uiState.update { it.copy(
@@ -98,7 +98,7 @@ class EmailVerificationViewModel @Inject constructor(
                 // Provide a simplified error message to the user
                 _uiState.update { it.copy(
                     isLoading = false,
-                    errorMessage = "Verification failed. Please try again."
+                    errorMessage = "La verificación falló. Por favor, inténtalo de nuevo."
                 )}
             }
         }
@@ -116,7 +116,7 @@ class EmailVerificationViewModel @Inject constructor(
                 if (email.isBlank()) {
                     _uiState.update { it.copy(
                         isLoading = false,
-                        errorMessage = "Email address is missing. Please go back and try again."
+                        errorMessage = "Falta la dirección de correo electrónico. Por favor, regresa e inténtalo de nuevo."
                     )}
                     return@launch
                 }
@@ -133,9 +133,9 @@ class EmailVerificationViewModel @Inject constructor(
                     },
                     onFailure = { exception ->
                         val errorMessage = when {
-                            exception.message?.contains("404") == true -> "Email not found"
-                            exception.message?.contains("429") == true -> "Too many requests, please try again later"
-                            else -> "Failed to resend code: ${exception.message}"
+                            exception.message?.contains("404") == true -> "Correo electrónico no encontrado"
+                            exception.message?.contains("429") == true -> "Demasiadas solicitudes, por favor intenta más tarde"
+                            else -> "Error al reenviar el código: ${exception.message}"
                         }
                         _uiState.update { it.copy(
                             isLoading = false,
@@ -156,8 +156,8 @@ class EmailVerificationViewModel @Inject constructor(
 data class EmailVerificationUiState(
     val isLoading: Boolean = false,
     val isVerified: Boolean = false,
+    val email: String? = null,
+    val needsEmailInput: Boolean = true,
     val errorMessage: String? = null,
-    val successMessage: String? = null,
-    val email: String? = null, // Add email to the UI state
-    val needsEmailInput: Boolean = false // Track if email input is needed
+    val successMessage: String? = null
 )

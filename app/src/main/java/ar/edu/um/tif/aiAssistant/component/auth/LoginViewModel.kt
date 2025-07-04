@@ -22,7 +22,7 @@ class LoginViewModel @Inject constructor(
     fun login(emailOrUsername: String, password: String) {
         if (emailOrUsername.isBlank() || password.isBlank()) {
             _uiState.update { it.copy(
-                errorMessage = "Email/username and password cannot be empty",
+                errorMessage = "El correo/usuario y la contraseña no pueden estar vacíos",
                 isLoading = false
             )}
             return
@@ -46,10 +46,10 @@ class LoginViewModel @Inject constructor(
                         // Handle the exception and determine the appropriate error message
                         val errorMessage = when {
                             exception.message?.contains("401") == true &&
-                            exception.message?.contains("verify your email") == true -> "Account not verified"
-                            exception.message?.contains("401") == true -> "Invalid credentials"
-                            exception.message?.contains("403") == true -> "Account not verified"
-                            else -> "Login failed: ${exception.message}"
+                            exception.message?.contains("verify your email") == true -> "Cuenta no verificada"
+                            exception.message?.contains("401") == true -> "Credenciales inválidas"
+                            exception.message?.contains("403") == true -> "Cuenta no verificada"
+                            else -> "Error al iniciar sesión: ${exception.message}"
                         }
 
                         // Handle specific case for email verification needed

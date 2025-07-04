@@ -22,7 +22,7 @@ class ForgotPasswordViewModel @Inject constructor(
     fun requestPasswordReset(email: String) {
         if (email.isBlank()) {
             _uiState.update { it.copy(
-                errorMessage = "Email cannot be empty",
+                errorMessage = "El correo electrónico no puede estar vacío",
                 isLoading = false
             )}
             return
@@ -48,7 +48,7 @@ class ForgotPasswordViewModel @Inject constructor(
                         android.util.Log.e("ForgotPasswordViewModel", "Password reset error: ${exception.message}", exception)
 
                         // Provide a user-friendly error message
-                        val errorMessage = "We couldn't process your request. Please try again later."
+                        val errorMessage = "No pudimos procesar tu solicitud. Por favor, inténtalo más tarde."
                         _uiState.update { it.copy(
                             isLoading = false,
                             errorMessage = errorMessage

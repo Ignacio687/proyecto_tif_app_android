@@ -57,7 +57,7 @@ data class AssistantUiButton(val text: String, val onClick: () -> Unit)
 fun AssistantScreen(
     viewModel: AssistantViewModel = hiltViewModel(),
     navigateToLogin: () -> Unit,
-    navigateBack: () -> Unit
+    navigateToHome: () -> Unit
 ) {
     val context = LocalContext.current
     val activity = LocalActivity.current
@@ -182,8 +182,10 @@ fun AssistantScreen(
             when (it::class.simpleName) {
                 "ResponseWidget" -> {
                     val text = it.javaClass.getMethod("getText").invoke(it) as String
-                    // Add the response to chat messages directly
-                    viewModel.addVoiceResponseMessage(text)
+                    // Only add the response to chat if it should not be filtered
+                    if (!viewModel.shouldFilterResponse(text)) {
+                        viewModel.addVoiceResponseMessage(text)
+                    }
                     null // Don't create a widget
                 }
                 "RequestWidget" -> {
@@ -246,7 +248,7 @@ fun AssistantScreen(
     }
 
     Scaffold(
-        topBar = { AssistantTopBar(navigateBack = navigateBack) },
+        topBar = { AssistantTopBar(navigateToHome = navigateToHome) },
         bottomBar = {
             if (hasEssentialPermissions) {
                 AssistantInputBar(
@@ -277,14 +279,15 @@ fun AssistantScreen(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun AssistantTopBar(navigateBack: () -> Unit) {
+private fun AssistantTopBar(navigateToHome: () -> Unit) {
     TopAppBar(
-        title = { Text("Assistant") },
-        navigationIcon = {
-            IconButton(onClick = navigateBack) {
+        title = { Text("Asistente") },
+        actions = {
+            IconButton(onClick = navigateToHome) {
                 Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = "Back"
+                    painter = painterResource(id = R.drawable.account_circle_24px),
+                    contentDescription = "Ir al inicio",
+                    modifier = Modifier.size(60.dp)
                 )
             }
         }
@@ -451,7 +454,7 @@ private fun AssistantInputBar(
                 value = userInput,
                 onValueChange = { userInput = it },
                 modifier = Modifier.weight(1f),
-                placeholder = { Text("Type a message...") },
+                placeholder = { Text("Escribe o di \"hola iris\"") },
                 singleLine = false,
                 maxLines = 4,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
@@ -480,7 +483,7 @@ private fun AssistantInputBar(
             ) {
                 Icon(
                     imageVector = Icons.Default.Send,
-                    contentDescription = "Send",
+                    contentDescription = "Enviar",
                     tint = if (!isLoading && userInput.isNotBlank())
                         MaterialTheme.colorScheme.primary
                     else
@@ -498,13 +501,13 @@ private fun AssistantInputBar(
                 if (isListening) {
                     Icon(
                         painter = painterResource(id = R.drawable.assistant_mic_icon_24),
-                        contentDescription = "Stop",
+                        contentDescription = "Detener",
                         tint = Color.White
                     )
                 } else {
                     Icon(
                         painter = painterResource(id = R.drawable.assistant_mic_off_icon_24),
-                        contentDescription = "Start",
+                        contentDescription = "Iniciar",
                         tint = Color.White
                     )
                 }
@@ -777,7 +780,7 @@ fun AssistantScreenPreview() {
     AI_AssistantTheme {
         AssistantScreen(
             navigateToLogin = {},
-            navigateBack = {}
+            navigateToHome = {}
         )
     }
 }

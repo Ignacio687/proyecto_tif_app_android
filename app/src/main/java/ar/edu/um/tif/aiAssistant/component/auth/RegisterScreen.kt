@@ -62,7 +62,7 @@ fun RegisterScreen(
         ) {
             // Header
             Text(
-                text = "Create Account",
+                text = "Crear Cuenta",
                 fontSize = 24.sp,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(vertical = 24.dp)
@@ -82,7 +82,7 @@ fun RegisterScreen(
                     OutlinedTextField(
                         value = email,
                         onValueChange = { email = it },
-                        label = { Text("Email") },
+                        label = { Text("Correo Electrónico") },
                         singleLine = true,
                         modifier = Modifier
                             .fillMaxWidth()
@@ -101,7 +101,7 @@ fun RegisterScreen(
                     OutlinedTextField(
                         value = username,
                         onValueChange = { username = it },
-                        label = { Text("Username") },
+                        label = { Text("Nombre de Usuario") },
                         singleLine = true,
                         modifier = Modifier
                             .fillMaxWidth()
@@ -120,7 +120,7 @@ fun RegisterScreen(
                     OutlinedTextField(
                         value = name,
                         onValueChange = { name = it },
-                        label = { Text("Full Name (Optional)") },
+                        label = { Text("Nombre Completo (Opcional)") },
                         singleLine = true,
                         modifier = Modifier
                             .fillMaxWidth()
@@ -138,7 +138,7 @@ fun RegisterScreen(
                     OutlinedTextField(
                         value = password,
                         onValueChange = { password = it },
-                        label = { Text("Password") },
+                        label = { Text("Contraseña") },
                         singleLine = true,
                         modifier = Modifier
                             .fillMaxWidth()
@@ -160,7 +160,7 @@ fun RegisterScreen(
                                         else
                                             R.drawable.visibility_off_24px
                                     ),
-                                    contentDescription = if (passwordVisible) "Hide password" else "Show password"
+                                    contentDescription = if (passwordVisible) "Ocultar contraseña" else "Mostrar contraseña"
                                 )
                             }
                         },
@@ -171,7 +171,7 @@ fun RegisterScreen(
                     OutlinedTextField(
                         value = confirmPassword,
                         onValueChange = { confirmPassword = it },
-                        label = { Text("Confirm Password") },
+                        label = { Text("Confirmar Contraseña") },
                         singleLine = true,
                         modifier = Modifier
                             .fillMaxWidth()
@@ -198,26 +198,27 @@ fun RegisterScreen(
                                         else
                                             R.drawable.visibility_off_24px
                                     ),
-                                    contentDescription = if (passwordVisible) "Hide password" else "Show password"
+                                    contentDescription = if (passwordVisible) "Ocultar contraseña" else "Mostrar contraseña"
                                 )
                             }
                         },
-                        isError = password != confirmPassword
+                        isError = password != confirmPassword || uiState.errorMessage?.contains("password", ignoreCase = true) == true
                     )
 
-                    // Password Match Error
-                    if (password != confirmPassword && confirmPassword.isNotEmpty()) {
+                    // Password Mismatch Error
+                    if (password != confirmPassword && password.isNotEmpty() && confirmPassword.isNotEmpty()) {
                         Text(
-                            text = "Passwords do not match",
+                            text = "Las contraseñas no coinciden",
                             color = MaterialTheme.colorScheme.error,
                             style = MaterialTheme.typography.bodySmall,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(start = 16.dp, top = 4.dp)
+                                .padding(top = 4.dp),
+                            textAlign = TextAlign.Start
                         )
                     }
 
-                    // Error Message
+                    // General Error Message
                     if (uiState.errorMessage != null) {
                         Text(
                             text = uiState.errorMessage ?: "",
@@ -241,8 +242,7 @@ fun RegisterScreen(
                             .fillMaxWidth()
                             .height(56.dp)
                             .padding(top = 16.dp),
-                        enabled = !uiState.isLoading && password == confirmPassword &&
-                                email.isNotBlank() && username.isNotBlank() && password.isNotBlank()
+                        enabled = !uiState.isLoading && password == confirmPassword
                     ) {
                         if (uiState.isLoading) {
                             CircularProgressIndicator(
@@ -250,13 +250,13 @@ fun RegisterScreen(
                                 color = MaterialTheme.colorScheme.onPrimary
                             )
                         } else {
-                            Text("Register")
+                            Text("Registrarse")
                         }
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
             // Login Link
             Row(
@@ -265,12 +265,12 @@ fun RegisterScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Already have an account?",
+                    text = "¿Ya tienes una cuenta?",
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
                 )
                 TextButton(onClick = onLoginClick) {
                     Text(
-                        text = "Login",
+                        text = "Iniciar Sesión",
                         color = MaterialTheme.colorScheme.primary,
                         fontWeight = FontWeight.Bold
                     )

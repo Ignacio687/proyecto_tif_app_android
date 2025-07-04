@@ -47,7 +47,7 @@ fun HomeScreen(
         ) {
             // Welcome header
             Text(
-                text = "Welcome to IACompanion",
+                text = "Bienvenido a IACompanion",
                 fontSize = 24.sp,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(vertical = 32.dp)
@@ -67,13 +67,13 @@ fun HomeScreen(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
-                        text = "Welcome back,",
+                        text = "Bienvenido de nuevo,",
                         fontSize = 18.sp,
                         textAlign = TextAlign.Center
                     )
 
                     Text(
-                        text = uiState.userName ?: "User",
+                        text = uiState.userName ?: "Usuario",
                         fontSize = 22.sp,
                         fontWeight = FontWeight.Bold,
                         textAlign = TextAlign.Center,
@@ -98,7 +98,7 @@ fun HomeScreen(
                     .fillMaxWidth()
                     .height(56.dp)
             ) {
-                Text("Chat with Assistant", fontSize = 16.sp)
+                Text("Chatear con Asistente", fontSize = 16.sp)
             }
 
             Spacer(modifier = Modifier.weight(1f))
@@ -110,7 +110,7 @@ fun HomeScreen(
                     .fillMaxWidth()
                     .height(56.dp)
             ) {
-                Text("Logout", fontSize = 16.sp)
+                Text("Cerrar Sesión", fontSize = 16.sp)
             }
 
             // Add a spacer at the bottom for better spacing

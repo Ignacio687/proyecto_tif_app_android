@@ -24,7 +24,7 @@ class RegisterViewModel @Inject constructor(
         // Validate input
         if (email.isBlank() || username.isBlank() || password.isBlank()) {
             _uiState.update { it.copy(
-                errorMessage = "Email, username, and password are required",
+                errorMessage = "El correo electrónico, nombre de usuario y contraseña son obligatorios",
                 isLoading = false
             )}
             return
@@ -32,7 +32,7 @@ class RegisterViewModel @Inject constructor(
 
         if (password.length < 8) {
             _uiState.update { it.copy(
-                errorMessage = "Password must be at least 8 characters",
+                errorMessage = "La contraseña debe tener al menos 8 caracteres",
                 isLoading = false
             )}
             return
@@ -40,7 +40,7 @@ class RegisterViewModel @Inject constructor(
 
         if (username.length < 3) {
             _uiState.update { it.copy(
-                errorMessage = "Username must be at least 3 characters",
+                errorMessage = "El nombre de usuario debe tener al menos 3 caracteres",
                 isLoading = false
             )}
             return
@@ -62,9 +62,9 @@ class RegisterViewModel @Inject constructor(
                     },
                     onFailure = { exception ->
                         val errorMessage = when {
-                            exception.message?.contains("409") == true -> "Email or username already exists"
-                            exception.message?.contains("400") == true -> "Invalid email format or password too weak"
-                            else -> "Registration failed. Please try again later."
+                            exception.message?.contains("409") == true -> "El correo o nombre de usuario ya existe"
+                            exception.message?.contains("400") == true -> "Formato de correo inválido o contraseña demasiado débil"
+                            else -> "Error en el registro. Por favor, inténtalo más tarde."
                         }
 
                         // Log the technical error for debugging purposes
@@ -91,5 +91,3 @@ data class RegisterUiState(
     val isRegistered: Boolean = false,
     val errorMessage: String? = null
 )
-
-

@@ -44,7 +44,7 @@ fun WelcomeScreen(
             ) {
                 Image(
                     painter = painterResource(id = R.drawable.app_icon_v3),
-                    contentDescription = "App Logo",
+                    contentDescription = "Logo de la aplicación",
                     modifier = Modifier.size(200.dp)
                 )
 
@@ -60,7 +60,7 @@ fun WelcomeScreen(
                 Spacer(modifier = Modifier.height(16.dp))
 
                 Text(
-                    text = "Your personal AI assistant",
+                    text = "Tu asistente personal de IA",
                     fontSize = 18.sp,
                     textAlign = TextAlign.Center,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
@@ -76,6 +76,9 @@ fun WelcomeScreen(
                 verticalArrangement = Arrangement.Bottom
             ) {
                 // Google Sign-In Button
+                // TODO: Re-enable Google Sign-In when implementation is complete
+                // Temporarily hidden as requested but keeping implementation for future use
+                /*
                 Button(
                     onClick = onGoogleSignInClick,
                     modifier = Modifier
@@ -87,14 +90,15 @@ fun WelcomeScreen(
                 ) {
                     Icon(
                         painter = painterResource(id = R.drawable.ic_launcher_foreground), // Replace with Google icon
-                        contentDescription = "Google icon",
+                        contentDescription = "Ícono de Google",
                         modifier = Modifier.size(24.dp)
                     )
                     Spacer(modifier = Modifier.width(12.dp))
-                    Text(text = "Sign in with Google", fontSize = 16.sp)
+                    Text(text = "Iniciar sesión con Google", fontSize = 16.sp)
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
+                */
 
                 // Email Sign-Up Button
                 OutlinedButton(
@@ -103,7 +107,7 @@ fun WelcomeScreen(
                         .fillMaxWidth()
                         .height(56.dp)
                 ) {
-                    Text(text = "Sign up with Email", fontSize = 16.sp)
+                    Text(text = "Registrarse con correo electrónico", fontSize = 16.sp)
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -115,12 +119,12 @@ fun WelcomeScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Already have an account?",
+                        text = "¿Ya tienes una cuenta?",
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
                     )
                     TextButton(onClick = onEmailLoginClick) {
                         Text(
-                            text = "Login",
+                            text = "Iniciar sesión",
                             color = MaterialTheme.colorScheme.primary,
                             fontWeight = FontWeight.Bold
                         )

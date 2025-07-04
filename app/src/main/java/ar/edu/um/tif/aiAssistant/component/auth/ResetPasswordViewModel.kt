@@ -23,7 +23,7 @@ class ResetPasswordViewModel @Inject constructor(
         // Validate input
         if (code.isBlank() || newPassword.isBlank()) {
             _uiState.update { it.copy(
-                errorMessage = "Reset code and new password are required",
+                errorMessage = "El código de restablecimiento y la nueva contraseña son obligatorios",
                 isLoading = false
             )}
             return
@@ -31,7 +31,7 @@ class ResetPasswordViewModel @Inject constructor(
 
         if (newPassword.length < 8) {
             _uiState.update { it.copy(
-                errorMessage = "Password must be at least 8 characters",
+                errorMessage = "La contraseña debe tener al menos 8 caracteres",
                 isLoading = false
             )}
             return
@@ -53,9 +53,9 @@ class ResetPasswordViewModel @Inject constructor(
                     },
                     onFailure = { exception ->
                         val errorMessage = when {
-                            exception.message?.contains("400") == true -> "Invalid reset code"
-                            exception.message?.contains("404") == true -> "Reset code not found or expired"
-                            else -> "Password reset failed: ${exception.message}"
+                            exception.message?.contains("400") == true -> "Código de restablecimiento inválido"
+                            exception.message?.contains("404") == true -> "Código no encontrado o expirado"
+                            else -> "Error al restablecer la contraseña: ${exception.message}"
                         }
                         _uiState.update { it.copy(
                             isLoading = false,

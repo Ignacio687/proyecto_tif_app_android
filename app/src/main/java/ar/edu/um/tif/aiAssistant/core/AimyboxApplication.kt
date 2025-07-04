@@ -43,7 +43,7 @@ class AimyboxApplication : Application(), AimyboxProvider {
         val locale = Locale("es", "AR")
         val assets = KaldiAssets.Companion.fromApkAssets(this, "vosk-model-small-es-0.42")
 
-        val voiceTrigger = KaldiVoiceTrigger(assets, listOf("che cortana", "che iris"))
+        val voiceTrigger = KaldiVoiceTrigger(assets, listOf("hola iris"))
 
         val textToSpeech = GooglePlatformTextToSpeech(context, locale)
 

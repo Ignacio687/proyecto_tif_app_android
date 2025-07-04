@@ -50,4 +50,13 @@ object ApiAssistantModels {
         override val query: String?
             get() = null
     }
+
+    /**
+     * Data class to represent a contact with name and phone number
+     */
+    @Serializable
+    data class Contact(
+        val name: String,
+        val phoneNumber: String
+    )
 }

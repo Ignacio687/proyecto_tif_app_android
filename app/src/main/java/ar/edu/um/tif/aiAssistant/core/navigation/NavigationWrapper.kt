@@ -151,7 +151,11 @@ fun NavigationWrapper() {
                         popUpTo(Assistant) { inclusive = true }
                     }
                 },
-                navigateBack = { navController.popBackStack() }
+                navigateToHome = {
+                    navController.navigate(Home) {
+                        popUpTo(Assistant) { inclusive = true }
+                    }
+                }
             )
         }
     }

@@ -65,7 +65,7 @@ fun LoginScreen(
         ) {
             // Header
             Text(
-                text = "Welcome Back",
+                text = "Bienvenido de nuevo",
                 fontSize = 24.sp,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(vertical = 32.dp)
@@ -85,7 +85,7 @@ fun LoginScreen(
                     OutlinedTextField(
                         value = emailOrUsername,
                         onValueChange = { emailOrUsername = it },
-                        label = { Text("Email or Username") },
+                        label = { Text("Correo o Usuario") },
                         singleLine = true,
                         modifier = Modifier
                             .fillMaxWidth()
@@ -104,7 +104,7 @@ fun LoginScreen(
                     OutlinedTextField(
                         value = password,
                         onValueChange = { password = it },
-                        label = { Text("Password") },
+                        label = { Text("Contraseña") },
                         singleLine = true,
                         modifier = Modifier
                             .fillMaxWidth()
@@ -129,7 +129,7 @@ fun LoginScreen(
                                         else
                                             R.drawable.visibility_off_24px
                                     ),
-                                    contentDescription = if (passwordVisible) "Hide password" else "Show password"
+                                    contentDescription = if (passwordVisible) "Ocultar contraseña" else "Mostrar contraseña"
                                 )
                             }
                         },
@@ -141,7 +141,7 @@ fun LoginScreen(
                         onClick = onForgotPasswordClick,
                         modifier = Modifier.align(Alignment.End)
                     ) {
-                        Text("Forgot Password?")
+                        Text("¿Olvidaste tu contraseña?")
                     }
 
                     // Error Message
@@ -172,7 +172,7 @@ fun LoginScreen(
                                 color = MaterialTheme.colorScheme.onPrimary
                             )
                         } else {
-                            Text("Login")
+                            Text("Iniciar Sesión")
                         }
                     }
                 }
@@ -187,12 +187,12 @@ fun LoginScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Don't have an account?",
+                    text = "¿No tienes una cuenta?",
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
                 )
                 TextButton(onClick = onSignUpClick) {
                     Text(
-                        text = "Sign Up",
+                        text = "Regístrate",
                         color = MaterialTheme.colorScheme.primary,
                         fontWeight = FontWeight.Bold
                     )

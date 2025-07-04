@@ -59,6 +59,9 @@ class AssistantViewModel @Inject constructor(
     val aimyboxState: LiveData<Aimybox.State>?
         get() = _aimyboxState
 
+    // Store the last response to check for skills in widget processing
+    private var lastServerResponse: ar.edu.um.tif.aiAssistant.core.data.model.ApiAssistantModels.ServerResponse? = null
+
     init {
         // Load conversation history when ViewModel is created
         loadConversationHistory()
@@ -157,8 +160,17 @@ class AssistantViewModel @Inject constructor(
                     else -> "No response from assistant"
                 }
 
-                // Add assistant's response to the chat
-                addMessage(ChatMessage(content = replyText, isFromUser = false))
+                // Check if the response has skills that might need special handling
+                val hasCallContactSkill = response.skills?.any { it.action == "call_contact" } == true
+
+                // Only add the assistant's response to chat if it doesn't have call_contact skill
+                // The skill will handle adding the appropriate message based on whether contact is found
+                if (!hasCallContactSkill) {
+                    addMessage(ChatMessage(content = replyText, isFromUser = false))
+                }
+
+                // Store the last response for skill checking in widget processing
+                lastServerResponse = response
 
                 _uiState.update { currentState -> currentState.copy(isLoading = false, errorMessage = null) }
             } catch (e: Exception) {
@@ -326,5 +338,25 @@ class AssistantViewModel @Inject constructor(
                 )}
             }
         }
+    }
+
+    /**
+     * Check if a response text should be filtered out (not added to chat)
+     * because it's part of a skill that will handle its own messaging
+     */
+    fun shouldFilterResponse(responseText: String): Boolean {
+        val response = lastServerResponse
+        if (response == null) return false
+
+        // Check if this response has call_contact skill and the text matches the server reply
+        val hasCallContactSkill = response.skills?.any { it.action == "call_contact" } == true
+        val matchesServerReply = response.replies.any { reply ->
+            when (reply) {
+                is com.justai.aimybox.model.reply.TextReply -> reply.text == responseText
+                else -> false
+            }
+        }
+
+        return hasCallContactSkill && matchesServerReply
     }
 }

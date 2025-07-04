@@ -3,7 +3,7 @@ package ar.edu.um.tif.aiAssistant.component.splash
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import ar.edu.um.tif.aiAssistant.core.auth.AuthManager
-import ar.edu.um.tif.aiAssistant.core.navigation.Home
+import ar.edu.um.tif.aiAssistant.core.navigation.Assistant
 import ar.edu.um.tif.aiAssistant.core.navigation.Welcome
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -32,8 +32,8 @@ class SplashViewModel @Inject constructor(
             val isAuthenticated = authManager.verifyAuthentication()
 
             if (isAuthenticated) {
-                // Authentication is valid, navigate to home screen
-                _navigateTo.value = Home
+                // Authentication is valid, navigate directly to assistant screen
+                _navigateTo.value = Assistant
             } else {
                 // Authentication failed, navigate to welcome screen
                 _navigateTo.value = Welcome
