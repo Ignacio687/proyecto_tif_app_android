@@ -20,10 +20,9 @@ object AssistantModule {
     @Singleton
     fun provideCustomSkills(
         @ApplicationContext context: Context,
-        assistantApiClientProvider: Provider<AssistantApiClient>
     ): LinkedHashSet<CustomSkill<*, *>> {
         return linkedSetOf(
-            CallContactSkill(context, assistantApiClientProvider)
+            CallContactSkill(context)
         )
     }
 }
