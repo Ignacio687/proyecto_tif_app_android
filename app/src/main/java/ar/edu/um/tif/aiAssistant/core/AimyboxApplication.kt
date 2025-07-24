@@ -64,7 +64,7 @@ class AimyboxApplication : Application(), AimyboxProvider {
 
         val aimyboxConfig = Config.Companion.create(speechToText, textToSpeech, dialogApi) {
             this.voiceTrigger = voiceTrigger
-            this.recognitionBehavior = Config.RecognitionBehavior.ALLOW_OVERRIDE
+            this.recognitionBehavior = Config.RecognitionBehavior.SYNCHRONOUS
         }
         return Aimybox(aimyboxConfig, context)
     }

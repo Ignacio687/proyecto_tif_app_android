@@ -30,26 +30,51 @@ class AppStateManager @Inject constructor(
     private val _currentScreen = MutableStateFlow(AppScreen.SPLASH)
     val currentScreen: StateFlow<AppScreen> = _currentScreen.asStateFlow()
 
+    private val _isAppInForeground = MutableStateFlow(true)
+    val isAppInForeground: StateFlow<Boolean> = _isAppInForeground.asStateFlow()
+
     private val _isAssistantActive = MutableStateFlow(false)
     val isAssistantActive: StateFlow<Boolean> = _isAssistantActive.asStateFlow()
+
+    // Helper property that combines screen state and foreground state
+    val isAssistantScreenActiveAndInForeground: Boolean
+        get() = _currentScreen.value == AppScreen.ASSISTANT && _isAppInForeground.value
 
     fun setCurrentScreen(screen: AppScreen) {
         val previousScreen = _currentScreen.value
         _currentScreen.value = screen
 
-        val wasAssistantActive = _isAssistantActive.value
-        val isAssistantActive = screen == AppScreen.ASSISTANT
-        _isAssistantActive.value = isAssistantActive
+        updateAssistantState()
 
-        // Handle assistant screen lifecycle
-        if (!wasAssistantActive && isAssistantActive) {
-            // Entering assistant screen
-            Log.d(TAG, "Entering assistant screen - notifying service manager")
-            wakeWordServiceManager.onAssistantScreenEntered()
-        } else if (wasAssistantActive && !isAssistantActive) {
-            // Exiting assistant screen
-            Log.d(TAG, "Exiting assistant screen - notifying service manager")
-            wakeWordServiceManager.onAssistantScreenExited()
+        Log.d(TAG, "Screen changed: $previousScreen -> $screen, Assistant active: ${_isAssistantActive.value}")
+    }
+
+    fun setAppInForeground(inForeground: Boolean) {
+        val wasInForeground = _isAppInForeground.value
+        _isAppInForeground.value = inForeground
+
+        Log.d(TAG, "App foreground state changed: $wasInForeground -> $inForeground")
+
+        updateAssistantState()
+    }
+
+    private fun updateAssistantState() {
+        val wasAssistantActive = _isAssistantActive.value
+        val isAssistantActive = isAssistantScreenActiveAndInForeground
+
+        if (wasAssistantActive != isAssistantActive) {
+            _isAssistantActive.value = isAssistantActive
+
+            // Handle assistant screen lifecycle
+            if (!wasAssistantActive && isAssistantActive) {
+                // Entering assistant screen (and app is in foreground)
+                Log.d(TAG, "Assistant screen became active - notifying service manager")
+                wakeWordServiceManager.onAssistantScreenEntered()
+            } else if (wasAssistantActive && !isAssistantActive) {
+                // Exiting assistant screen (navigating away or app going to background)
+                Log.d(TAG, "Assistant screen became inactive - notifying service manager")
+                wakeWordServiceManager.onAssistantScreenExited()
+            }
         }
     }
 

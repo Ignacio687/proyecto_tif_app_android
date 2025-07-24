@@ -59,6 +59,7 @@ class KaldiWakeWordService : Service() {
     private var serviceScope: CoroutineScope? = null
     private var voiceTriggerJob: Job? = null
     private var isDetectionActive = false
+    private var isPopupActive = false // Track if popup is currently open
     private var lastTriggerTime = 0L
     private var restartAttempts = 0
     private val maxRestartAttempts = 5
@@ -293,6 +294,15 @@ class KaldiWakeWordService : Service() {
     }
 
     private fun launchPopupActivity(phrase: String?) {
+        // Check if popup is already active - don't launch a new one
+        if (isPopupActive) {
+            Log.d(TAG, "Popup already active - ignoring wake word trigger")
+            return
+        }
+
+        // Mark popup as active
+        isPopupActive = true
+
         // Temporarily disable voice trigger to prevent conflicts during popup
         aimybox.isVoiceTriggerActivated = false
 
@@ -306,8 +316,11 @@ class KaldiWakeWordService : Service() {
 
         try {
             startActivity(intent)
+            Log.d(TAG, "Popup launched successfully")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to launch assistant popup", e)
+            // Reset popup state if launch failed
+            isPopupActive = false
             // Re-enable voice trigger if launch failed
             serviceScope?.launch {
                 delay(1000)
@@ -321,6 +334,10 @@ class KaldiWakeWordService : Service() {
     // Add method to handle when popup is dismissed
     fun onPopupDismissed() {
         serviceScope?.launch {
+            // Mark popup as no longer active
+            isPopupActive = false
+            Log.d(TAG, "Popup marked as dismissed")
+
             // Re-enable voice trigger after popup is dismissed, but only if assistant screen is not active
             if (isDetectionActive && !appStateManager.isAssistantActive.value && isServiceInForeground) {
                 delay(1000) // Brief delay to ensure popup is fully dismissed
