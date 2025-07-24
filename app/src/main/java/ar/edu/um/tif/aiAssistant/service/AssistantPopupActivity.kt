@@ -7,6 +7,9 @@ import android.util.Log
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.animation.core.EaseInOutCubic
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -141,8 +144,33 @@ fun AssistantPopupScreen(
     var authState by remember { mutableStateOf(AuthState.Checking) }
     var autoDismissJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
 
+    // State for tracking scroll and window expansion
+    var hasScrolled by remember { mutableStateOf(false) }
+
+    // Animated height - expands to full size once user scrolls and stays expanded
+    val animatedHeight by animateFloatAsState(
+        targetValue = if (hasScrolled) 0.9f else 0.35f,
+        animationSpec = tween(durationMillis = 300, easing = EaseInOutCubic),
+        label = "popup_height_animation"
+    )
+
     val uiState by viewModel.uiState.collectAsState()
     val scrollState = rememberLazyListState()
+
+    // Monitor MANUAL scroll state changes - only expand when user manually scrolls
+    LaunchedEffect(scrollState.isScrollInProgress) {
+        // Only trigger expansion if:
+        // 1. User is actively scrolling
+        // 2. We haven't already expanded
+        // 3. There are enough messages to actually scroll through (more than what fits on screen)
+        if (scrollState.isScrollInProgress && !hasScrolled && uiState.messages.size > 3) {
+            // Add a small delay to ensure this is intentional scrolling, not auto-scroll
+            delay(100)
+            if (scrollState.isScrollInProgress) {
+                hasScrolled = true
+            }
+        }
+    }
 
     // Voice Assistant Components - Only initialized when permission is granted
     val hasRecordAudioPermission = ContextCompat.checkSelfPermission(
@@ -189,10 +217,13 @@ fun AssistantPopupScreen(
     fun startAutoDismissTimer() {
         autoDismissJob?.cancel()
         autoDismissJob = coroutineScope.launch {
-            delay(15000)
+            delay(300000) // 5 minutes for the popup to stay open
+            // Only auto-dismiss if user has NEVER interacted
             if (!uiState.userHasInteracted) {
                 Log.d("AssistantPopup", "Auto-dismissing popup after 15 seconds of no interaction")
                 onDismiss()
+            } else {
+                Log.d("AssistantPopup", "User has interacted - popup will stay open indefinitely")
             }
         }
     }
@@ -212,10 +243,17 @@ fun AssistantPopupScreen(
         }
     }
 
-    // Start auto-dismiss timer when authenticated and ready
-    LaunchedEffect(authState) {
-        if (authState == AuthState.Authenticated && !uiState.userHasInteracted) {
-            startAutoDismissTimer()
+    // Start auto-dismiss timer ONLY when authenticated and user has NOT interacted yet
+    LaunchedEffect(authState, uiState.userHasInteracted) {
+        if (authState == AuthState.Authenticated) {
+            if (!uiState.userHasInteracted) {
+                // Start the 15-second timer for first-time display
+                startAutoDismissTimer()
+            } else {
+                // User has interacted - cancel any existing timer and keep popup open
+                autoDismissJob?.cancel()
+                Log.d("AssistantPopup", "User interaction detected - disabling auto-dismiss")
+            }
         }
     }
 
@@ -266,7 +304,7 @@ fun AssistantPopupScreen(
             Card(
                 modifier = Modifier
                     .fillMaxWidth(0.9f)
-                    .fillMaxHeight(0.35f)
+                    .fillMaxHeight(animatedHeight)
                     .clip(RoundedCornerShape(16.dp)),
                 colors = CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.surface
@@ -377,7 +415,7 @@ private fun PopupHeader(onDismiss: () -> Unit) {
         IconButton(onClick = onDismiss) {
             Icon(
                 painter = painterResource(id = android.R.drawable.ic_menu_close_clear_cancel),
-                contentDescription = "Close"
+                contentDescription = "Cerrar"
             )
         }
     }
@@ -602,7 +640,7 @@ private fun NotAuthenticatedContent(onOpenLogin: () -> Unit) {
     ) {
         Icon(
             painter = painterResource(id = android.R.drawable.ic_dialog_alert),
-            contentDescription = "Login required",
+            contentDescription = "Inicio de sesión requerido",
             modifier = Modifier.size(48.dp),
             tint = MaterialTheme.colorScheme.error
         )

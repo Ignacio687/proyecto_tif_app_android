@@ -148,7 +148,7 @@ class AuthRepository @Inject constructor(
     }
 
     // Resend verification code
-    suspend fun resendVerificationCode(email: String): Result<ApiAuthModels.VerificationResponse> {
+    suspend fun resendVerificationCode(email: String): Result<ApiAuthModels.MessageResponse> {
         return authClient.resendVerificationCode(ApiAuthModels.ResendVerificationRequest(email))
     }
 

@@ -127,7 +127,7 @@ class KaldiWakeWordService : Service() {
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("AI Assistant")
-            .setContentText("Listening for 'Hola Iris'...")
+            .setContentText("Escuchando 'Hola Iris'...")
             .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setContentIntent(pendingIntent)
             .setOngoing(true)

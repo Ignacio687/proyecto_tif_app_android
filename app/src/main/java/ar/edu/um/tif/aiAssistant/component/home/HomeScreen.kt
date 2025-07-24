@@ -1,13 +1,10 @@
 package ar.edu.um.tif.aiAssistant.component.home
 
-import android.content.Intent
-import android.util.Log
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
@@ -23,21 +20,7 @@ fun HomeScreen(
     navigateToAssistant: () -> Unit,
     navigateToSettings: () -> Unit = {}
 ) {
-    val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
-
-    // TEMPORARY TEST CODE - Launch popup when home screen opens
-    LaunchedEffect(Unit) {
-        try {
-            val intent = Intent(context, ar.edu.um.tif.aiAssistant.service.AssistantPopupActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
-            }
-            context.startActivity(intent)
-            Log.d("HomeScreen", "TEMP: Launched popup for testing")
-        } catch (e: Exception) {
-            Log.e("HomeScreen", "TEMP: Failed to launch popup for testing", e)
-        }
-    }
 
     // Handle logout
     LaunchedEffect(uiState.isLoggedOut) {

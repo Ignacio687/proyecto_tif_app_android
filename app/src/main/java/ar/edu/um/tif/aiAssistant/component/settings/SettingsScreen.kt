@@ -51,12 +51,12 @@ fun SettingsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Settings") },
+                title = { Text("Configuración") },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back"
+                            contentDescription = "Atrás"
                         )
                     }
                 }
@@ -80,13 +80,13 @@ fun SettingsScreen(
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Text(
-                        text = "Wake Word Detection",
+                        text = "Detección de Palabra de Activación",
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold
                     )
 
                     Text(
-                        text = "Enable background listening for 'Hola Iris' to activate the assistant from anywhere",
+                        text = "Habilita la escucha en segundo plano de 'Hola Iris' para activar el asistente desde cualquier lugar",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
                     )
@@ -98,11 +98,11 @@ fun SettingsScreen(
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "Background Wake Word",
+                                text = "Palabra de Activación en Segundo Plano",
                                 style = MaterialTheme.typography.bodyLarge
                             )
                             Text(
-                                text = if (uiState.isServiceEnabled) "Active" else "Inactive",
+                                text = if (uiState.isServiceEnabled) "Activo" else "Inactivo",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = if (uiState.isServiceEnabled)
                                     MaterialTheme.colorScheme.primary
@@ -144,21 +144,21 @@ fun SettingsScreen(
                                 verticalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
                                 Text(
-                                    text = "Permissions Required",
+                                    text = "Permisos Requeridos",
                                     style = MaterialTheme.typography.titleSmall,
                                     fontWeight = FontWeight.Bold
                                 )
 
                                 if (!uiState.hasMicrophonePermission) {
                                     Text(
-                                        text = "• Microphone: Required to listen for wake words",
+                                        text = "• Micrófono: Requerido para escuchar palabras de activación",
                                         style = MaterialTheme.typography.bodySmall
                                     )
                                 }
 
                                 if (!uiState.hasOverlayPermission) {
                                     Text(
-                                        text = "• Display over other apps: Required to show assistant popup",
+                                        text = "• Mostrar sobre otras aplicaciones: Requerido para mostrar el popup del asistente",
                                         style = MaterialTheme.typography.bodySmall
                                     )
                                 }
@@ -185,7 +185,7 @@ fun SettingsScreen(
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Text(
-                        text = "Wake Word Configuration",
+                        text = "Configuración de Palabra de Activación",
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold
                     )
@@ -197,7 +197,7 @@ fun SettingsScreen(
                     ) {
                         Column {
                             Text(
-                                text = "Current Wake Word",
+                                text = "Palabra de Activación Actual",
                                 style = MaterialTheme.typography.bodyLarge
                             )
                             Text(
@@ -209,7 +209,7 @@ fun SettingsScreen(
                     }
 
                     Text(
-                        text = "Say 'Hola Iris' to activate the assistant from anywhere on your device",
+                        text = "Di 'Hola Iris' para activar el asistente desde cualquier lugar de tu dispositivo",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
                     )
@@ -229,13 +229,13 @@ fun SettingsScreen(
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Text(
-                            text = "Battery Optimization",
+                            text = "Optimización de Batería",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold
                         )
 
                         Text(
-                            text = "For best performance, consider disabling battery optimization for this app in your device settings.",
+                            text = "Para un mejor rendimiento, considera deshabilitar la optimización de batería para esta aplicación en la configuración de tu dispositivo.",
                             style = MaterialTheme.typography.bodySmall
                         )
 
@@ -245,7 +245,7 @@ fun SettingsScreen(
                                 context.startActivity(intent)
                             }
                         ) {
-                            Text("Open Battery Settings")
+                            Text("Abrir Configuración de Batería")
                         }
                     }
                 }
@@ -257,9 +257,9 @@ fun SettingsScreen(
     if (showPermissionDialog) {
         AlertDialog(
             onDismissRequest = { showPermissionDialog = false },
-            title = { Text("Permissions Required") },
+            title = { Text("Permisos Requeridos") },
             text = {
-                Text("The wake word feature requires microphone and overlay permissions to work properly.")
+                Text("La función de palabra de activación requiere permisos de micrófono y superposición para funcionar correctamente.")
             },
             confirmButton = {
                 TextButton(
@@ -268,12 +268,12 @@ fun SettingsScreen(
                         micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
                     }
                 ) {
-                    Text("Grant Permissions")
+                    Text("Otorgar Permisos")
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showPermissionDialog = false }) {
-                    Text("Cancel")
+                    Text("Cancelar")
                 }
             }
         )

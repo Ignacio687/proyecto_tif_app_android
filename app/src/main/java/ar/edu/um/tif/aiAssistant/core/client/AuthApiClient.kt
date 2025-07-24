@@ -113,7 +113,7 @@ class AuthApiClient @Inject constructor(
     /**
      * Request a new verification code to be sent to the user's email
      */
-    suspend fun resendVerificationCode(request: ResendVerificationRequest): Result<VerificationResponse> = runCatching {
+    suspend fun resendVerificationCode(request: ResendVerificationRequest): Result<MessageResponse> = runCatching {
         val response = client.post {
             url("$apiPath/resend-verification")
             contentType(ContentType.Application.Json)
