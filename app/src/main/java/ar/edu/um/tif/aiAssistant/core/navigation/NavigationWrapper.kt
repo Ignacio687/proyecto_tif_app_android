@@ -17,16 +17,48 @@ import ar.edu.um.tif.aiAssistant.component.auth.RegisterScreen
 import ar.edu.um.tif.aiAssistant.component.auth.ResetPasswordScreen
 import ar.edu.um.tif.aiAssistant.component.auth.WelcomeScreen
 import ar.edu.um.tif.aiAssistant.component.home.HomeScreen
+import ar.edu.um.tif.aiAssistant.component.settings.SettingsScreen
 import ar.edu.um.tif.aiAssistant.component.splash.SplashScreen
 import ar.edu.um.tif.aiAssistant.component.splash.SplashViewModel
+import ar.edu.um.tif.aiAssistant.core.state.AppScreen
+import ar.edu.um.tif.aiAssistant.core.state.AppStateManager
+import androidx.compose.ui.platform.LocalContext
+import dagger.hilt.EntryPoint
+import dagger.hilt.android.EntryPointAccessors
+import dagger.hilt.InstallIn
+import dagger.hilt.components.SingletonComponent
+
+@EntryPoint
+@InstallIn(SingletonComponent::class)
+interface AppStateManagerEntryPoint {
+    fun appStateManager(): AppStateManager
+}
 
 @Composable
-fun NavigationWrapper() {
+fun NavigationWrapper(navigateToAssistant: Boolean = false) {
+    val context = LocalContext.current
+    val appStateManager = EntryPointAccessors.fromApplication(
+        context,
+        AppStateManagerEntryPoint::class.java
+    ).appStateManager()
+
     val navController = rememberNavController()
+
+    // Handle direct navigation to assistant from popup
+    LaunchedEffect(navigateToAssistant) {
+        if (navigateToAssistant) {
+            navController.navigate(Assistant) {
+                popUpTo(0) { inclusive = true }
+            }
+        }
+    }
 
     NavHost(navController = navController, startDestination = Splash) {
 
         composable<Splash> {
+            LaunchedEffect(Unit) {
+                appStateManager.setCurrentScreen(AppScreen.SPLASH)
+            }
             val viewModel: SplashViewModel = hiltViewModel()
             val navigateTo by viewModel.navigateTo.collectAsState()
 
@@ -42,6 +74,9 @@ fun NavigationWrapper() {
         }
 
         composable<Welcome> {
+            LaunchedEffect(Unit) {
+                appStateManager.setCurrentScreen(AppScreen.WELCOME)
+            }
             WelcomeScreen(
                 onGoogleSignInClick = { navController.navigate(GoogleSignIn) },
                 onEmailSignUpClick = { navController.navigate(Register) },
@@ -50,6 +85,9 @@ fun NavigationWrapper() {
         }
 
         composable<Login> {
+            LaunchedEffect(Unit) {
+                appStateManager.setCurrentScreen(AppScreen.LOGIN)
+            }
             LoginScreen(
                 onLoginSuccess = {
                     navController.navigate(Home) {
@@ -69,6 +107,9 @@ fun NavigationWrapper() {
         }
 
         composable<Register> {
+            LaunchedEffect(Unit) {
+                appStateManager.setCurrentScreen(AppScreen.REGISTER)
+            }
             RegisterScreen(
                 onRegistrationSuccess = { email ->
                     navController.navigate(EmailVerification.apply {
@@ -82,6 +123,9 @@ fun NavigationWrapper() {
         }
 
         composable<GoogleSignIn> {
+            LaunchedEffect(Unit) {
+                appStateManager.setCurrentScreen(AppScreen.OTHER)
+            }
             GoogleSignInScreen(
                 onSignInSuccess = {
                     navController.navigate(Home) {
@@ -93,6 +137,9 @@ fun NavigationWrapper() {
         }
 
         composable<EmailVerification> {
+            LaunchedEffect(Unit) {
+                appStateManager.setCurrentScreen(AppScreen.OTHER)
+            }
             EmailVerificationScreen(
                 onVerificationSuccess = {
                     navController.navigate(Home) {
@@ -112,6 +159,9 @@ fun NavigationWrapper() {
         }
 
         composable<ForgotPassword> {
+            LaunchedEffect(Unit) {
+                appStateManager.setCurrentScreen(AppScreen.OTHER)
+            }
             ForgotPasswordScreen(
                 onResetCodeSent = { email ->
                     navController.navigate(ResetPassword) {
@@ -123,6 +173,9 @@ fun NavigationWrapper() {
         }
 
         composable<ResetPassword> {
+            LaunchedEffect(Unit) {
+                appStateManager.setCurrentScreen(AppScreen.OTHER)
+            }
             ResetPasswordScreen(
                 onPasswordResetSuccess = {
                     navController.navigate(Login) {
@@ -134,17 +187,24 @@ fun NavigationWrapper() {
         }
 
         composable<Home> {
+            LaunchedEffect(Unit) {
+                appStateManager.setCurrentScreen(AppScreen.HOME)
+            }
             HomeScreen(
                 navigateToLogin = {
                     navController.navigate(Welcome) {
                         popUpTo(Home) { inclusive = true }
                     }
                 },
-                navigateToAssistant = { navController.navigate(Assistant) }
+                navigateToAssistant = { navController.navigate(Assistant) },
+                navigateToSettings = { navController.navigate(Settings) }
             )
         }
 
         composable<Assistant> {
+            LaunchedEffect(Unit) {
+                appStateManager.setCurrentScreen(AppScreen.ASSISTANT)
+            }
             AssistantScreen(
                 navigateToLogin = {
                     navController.navigate(Welcome) {
@@ -156,6 +216,15 @@ fun NavigationWrapper() {
                         popUpTo(Assistant) { inclusive = true }
                     }
                 }
+            )
+        }
+
+        composable<Settings> {
+            LaunchedEffect(Unit) {
+                appStateManager.setCurrentScreen(AppScreen.SETTINGS)
+            }
+            SettingsScreen(
+                onBackClick = { navController.popBackStack() }
             )
         }
     }

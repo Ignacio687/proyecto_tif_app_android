@@ -13,6 +13,8 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE"/>
     <uses-permission android:name="android.permission.CALL_PHONE" />
     <uses-permission android:name="android.permission.READ_CONTACTS" />
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
 
     <application
         android:usesCleartextTraffic="true"
@@ -27,16 +29,35 @@
         android:theme="@style/Theme.AI_Assistant"
         android:name=".core.AimyboxApplication"
         tools:targetApi="33">
+
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:theme="@style/Theme.AI_Assistant">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- Kaldi wake word detection service -->
+        <service
+            android:name=".service.KaldiWakeWordService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="microphone" />
+
+        <!-- Popup overlay activity -->
+        <activity
+            android:name=".service.AssistantPopupActivity"
+            android:enabled="true"
+            android:exported="false"
+            android:theme="@style/Theme.AI_Assistant.Dialog"
+            android:excludeFromRecents="true"
+            android:launchMode="singleTop"
+            android:taskAffinity=""
+            android:screenOrientation="portrait" />
+
     </application>
 
 </manifest>

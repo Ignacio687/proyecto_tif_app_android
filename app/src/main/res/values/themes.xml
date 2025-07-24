@@ -2,4 +2,16 @@
 <resources>
 
     <style name="Theme.AI_Assistant" parent="android:Theme.Material.Light.NoActionBar" />
+
+    <!-- Dialog theme for popup overlay activity -->
+    <style name="Theme.AI_Assistant.Dialog" parent="Theme.AI_Assistant">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowIsFloating">true</item>
+        <item name="android:backgroundDimEnabled">true</item>
+        <item name="android:windowSoftInputMode">adjustResize</item>
+        <item name="android:windowCloseOnTouchOutside">true</item>
+    </style>
+
 </resources>

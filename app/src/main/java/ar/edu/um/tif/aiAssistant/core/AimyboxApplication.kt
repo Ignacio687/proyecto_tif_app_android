@@ -5,6 +5,7 @@ import android.content.Context
 import android.util.Log
 import ar.edu.um.tif.aiAssistant.core.client.AssistantApiClient
 import ar.edu.um.tif.aiAssistant.core.skills.CallContactSkill
+import ar.edu.um.tif.aiAssistant.service.WakeWordServiceManager
 import com.justai.aimybox.Aimybox
 import com.justai.aimybox.components.AimyboxProvider
 import com.justai.aimybox.core.Config
@@ -24,6 +25,10 @@ class AimyboxApplication : Application(), AimyboxProvider {
     @Inject
     lateinit var assistantApiClientProvider: Provider<AssistantApiClient>
 
+    // Inject WakeWordServiceManager to ensure it's initialized at app startup
+    @Inject
+    lateinit var wakeWordServiceManager: WakeWordServiceManager
+
     companion object {
         private const val TAG = "AimyboxApplication"
 
@@ -35,6 +40,11 @@ class AimyboxApplication : Application(), AimyboxProvider {
     override fun onCreate() {
         super.onCreate()
         System.setProperty("jna.nosys", "true")
+
+        // Initialize wake word service manager and health monitoring
+        Log.d(TAG, "Initializing wake word management system")
+
+        Log.d(TAG, "Wake word management system initialized - health monitoring active")
     }
 
     override val aimybox by lazy { createAimybox(this) }

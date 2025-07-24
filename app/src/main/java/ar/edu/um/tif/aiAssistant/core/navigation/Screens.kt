@@ -33,3 +33,6 @@ object Home
 
 @Serializable
 object Assistant
+
+@Serializable
+object Settings

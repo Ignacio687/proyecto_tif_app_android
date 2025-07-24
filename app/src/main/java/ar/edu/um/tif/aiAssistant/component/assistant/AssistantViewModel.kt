@@ -19,8 +19,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import java.time.Instant
-import java.time.format.DateTimeParseException
 import javax.inject.Inject
 
 data class ChatMessage(
@@ -41,22 +39,31 @@ data class AssistantUiState(
 class AssistantViewModel @Inject constructor(
     private val assistantRepository: AssistantRepository,
     private val assistantApiClient: AssistantApiClient,
-    private val authManager: AuthManager
+    private val authManager: AuthManager,
+    private val aimybox: Aimybox
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AssistantUiState())
     val uiState: StateFlow<AssistantUiState> = _uiState.asStateFlow()
 
-    // AimyBox related properties - using safer initialization approach
-    private var _aimyboxDelegate: AimyboxAssistantViewModel? = null
-    private var _widgets: LiveData<List<AssistantWidget>>? = null
-    private var _aimyboxState: LiveData<Aimybox.State>? = null
+    // AimyBox related properties - now using injected instance
+    private val _aimyboxDelegate: AimyboxAssistantViewModel by lazy {
+        AimyboxAssistantViewModel(aimybox)
+    }
 
-    // Safe accessors that won't throw exceptions if not initialized
-    val widgets: LiveData<List<AssistantWidget>>?
+    private val _widgets: LiveData<List<AssistantWidget>> by lazy {
+        _aimyboxDelegate.widgets
+    }
+
+    private val _aimyboxState: LiveData<Aimybox.State> by lazy {
+        _aimyboxDelegate.aimyboxState
+    }
+
+    // Public accessors
+    val widgets: LiveData<List<AssistantWidget>>
         get() = _widgets
 
-    val aimyboxState: LiveData<Aimybox.State>?
+    val aimyboxState: LiveData<Aimybox.State>
         get() = _aimyboxState
 
     // Store the last response to check for skills in widget processing
@@ -85,25 +92,12 @@ class AssistantViewModel @Inject constructor(
     }
 
     /**
-     * Initialize the AimyBox delegate
-     * This must be called before using any AimyBox features
-     */
-    fun initializeAimybox(aimybox: Aimybox) {
-        // Create the delegate with the provided Aimybox instance
-        _aimyboxDelegate = AimyboxAssistantViewModel(aimybox)
-
-        // Get references to the delegate's properties
-        _widgets = _aimyboxDelegate?.widgets
-        _aimyboxState = _aimyboxDelegate?.aimyboxState
-    }
-
-    /**
      * Handle AimyBox button click
      * Requires RECORD_AUDIO permission
      */
     @RequiresPermission(Manifest.permission.RECORD_AUDIO)
     fun onAssistantButtonClick() {
-        _aimyboxDelegate?.onAssistantButtonClick()
+        _aimyboxDelegate.onAssistantButtonClick()
     }
 
     /**
@@ -112,28 +106,28 @@ class AssistantViewModel @Inject constructor(
      */
     @RequiresPermission(Manifest.permission.RECORD_AUDIO)
     fun onButtonClick(button: Button) {
-        _aimyboxDelegate?.onButtonClick(button)
+        _aimyboxDelegate.onButtonClick(button)
     }
 
     /**
      * Mute AimyBox
      */
     fun muteAimybox() {
-        _aimyboxDelegate?.muteAimybox()
+        _aimyboxDelegate.muteAimybox()
     }
 
     /**
      * Unmute AimyBox
      */
     fun unmuteAimybox() {
-        _aimyboxDelegate?.unmuteAimybox()
+        _aimyboxDelegate.unmuteAimybox()
     }
 
     /**
      * Set initial phrase
      */
     fun setInitialPhrase(text: String) {
-        _aimyboxDelegate?.setInitialPhrase(text)
+        _aimyboxDelegate.setInitialPhrase(text)
     }
 
     /**
@@ -316,6 +310,13 @@ class AssistantViewModel @Inject constructor(
                             isLoading = false,
                             errorMessage = null
                         )}
+
+                        // Log messages only when they're loaded from server
+                        android.util.Log.d("ConversationHistory", "=== MESSAGES LOADED FROM SERVER ===")
+                        messages.reversed().forEachIndexed { index, message ->
+                            android.util.Log.d("ConversationHistory", "Message $index: isFromUser=${message.isFromUser}, content=${message.content}, timestamp=${message.timestamp}")
+                        }
+                        android.util.Log.d("ConversationHistory", "=== END SERVER MESSAGES (${messages.size} total) ===")
                     },
                     onFailure = { error ->
                         // Log the detailed error for debugging

@@ -37,7 +37,6 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import ar.edu.um.tif.aiAssistant.R
-import ar.edu.um.tif.aiAssistant.core.AimyboxApplication
 import ar.edu.um.tif.aiAssistant.ui.theme.AI_AssistantTheme
 import com.justai.aimybox.components.widget.Button as AimyboxButton
 import kotlinx.coroutines.launch
@@ -123,16 +122,6 @@ fun AssistantScreen(
         contract = ActivityResultContracts.RequestPermission()
     ) { isGranted ->
         // This launcher is used for specific permissions when needed
-    }
-
-    // Initialize AimyBox when essential permissions are granted
-    LaunchedEffect(hasEssentialPermissions) {
-        if (hasEssentialPermissions) {
-            val aimyboxApp = context.applicationContext as? AimyboxApplication
-            aimyboxApp?.aimybox?.let { aimybox ->
-                viewModel.initializeAimybox(aimybox)
-            }
-        }
     }
 
     // Request essential permissions on initial composition if not already granted
@@ -337,11 +326,6 @@ private fun MessageList(
             state = scrollState,
             contentPadding = PaddingValues(top = 8.dp, bottom = 72.dp) // Increased bottom padding for better spacing
         ) {
-            // Add debug logging to check message ordering
-            messages.forEachIndexed { index, message ->
-                android.util.Log.d("MessageList", "Message $index: isFromUser=${message.isFromUser}, content=${message.content}, timestamp=${message.timestamp}")
-            }
-
             // Chat messages - Display in the same order as they come from the server
             // Server sends index 0 = most recent, so we'll display them in that order
             items(messages) { message ->

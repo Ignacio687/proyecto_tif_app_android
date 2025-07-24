@@ -13,9 +13,13 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        // Check if we need to navigate directly to assistant
+        val navigateToAssistant = intent.getBooleanExtra("navigate_to_assistant", false)
+
         setContent {
             AI_AssistantTheme {
-                NavigationWrapper()
+                NavigationWrapper(navigateToAssistant = navigateToAssistant)
             }
         }
     }

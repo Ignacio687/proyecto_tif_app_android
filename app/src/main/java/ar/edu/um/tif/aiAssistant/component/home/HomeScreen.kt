@@ -17,7 +17,8 @@ import ar.edu.um.tif.aiAssistant.ui.theme.AI_AssistantTheme
 fun HomeScreen(
     viewModel: HomeViewModel = hiltViewModel(),
     navigateToLogin: () -> Unit,
-    navigateToAssistant: () -> Unit
+    navigateToAssistant: () -> Unit,
+    navigateToSettings: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
@@ -101,6 +102,18 @@ fun HomeScreen(
                 Text("Chatear con Asistente", fontSize = 16.sp)
             }
 
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Settings button
+            OutlinedButton(
+                onClick = navigateToSettings,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp)
+            ) {
+                Text("Configuración", fontSize = 16.sp)
+            }
+
             Spacer(modifier = Modifier.weight(1f))
 
             // Logout button
@@ -125,7 +138,8 @@ fun HomeScreenPreview() {
     AI_AssistantTheme {
         HomeScreen(
             navigateToLogin = {},
-            navigateToAssistant = {}
+            navigateToAssistant = {},
+            navigateToSettings = {}
         )
     }
 }
