@@ -36,11 +36,27 @@ class KaldiWakeWordService : Service() {
         private const val RESTART_DELAY = 2000L // 2 seconds
 
         fun startService(context: Context) {
-            val intent = Intent(context, KaldiWakeWordService::class.java)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                context.startForegroundService(intent)
-            } else {
-                context.startService(intent)
+            try {
+                val intent = Intent(context, KaldiWakeWordService::class.java)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    // For Android 14+ (API 34+), check if we can start foreground service
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                        // Only start if app is in foreground or has special exemption
+                        try {
+                            context.startForegroundService(intent)
+                        } catch (e: SecurityException) {
+                            Log.w(TAG, "Cannot start foreground service due to background restrictions: ${e.message}")
+                            // Fallback: start as regular service (will be limited)
+                            context.startService(intent)
+                        }
+                    } else {
+                        context.startForegroundService(intent)
+                    }
+                } else {
+                    context.startService(intent)
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error starting service: ${e.message}", e)
             }
         }
 
@@ -76,19 +92,29 @@ class KaldiWakeWordService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         Log.d(TAG, "KaldiWakeWordService started")
 
-        val notification = createNotification()
-        startForeground(NOTIFICATION_ID, notification)
-        isServiceInForeground = true
-
-        // Check if this is a popup dismissal notification
+        // Handle popup dismissal notification
         if (intent?.action == "POPUP_DISMISSED") {
             Log.d(TAG, "Received popup dismissal notification")
             onPopupDismissed()
-        } else {
-            startWakeWordDetection()
+            return START_STICKY
         }
 
-        return START_STICKY // Restart if killed
+        // Normal service start - always start foreground and detection
+        if (!isServiceInForeground) {
+            try {
+                val notification = createNotification()
+                startForeground(NOTIFICATION_ID, notification)
+                isServiceInForeground = true
+                Log.d(TAG, "Service started in foreground successfully")
+            } catch (e: Exception) {
+                Log.e(TAG, "Error starting foreground service: ${e.message}", e)
+                // If we can't start as foreground, continue as regular service
+                isServiceInForeground = false
+            }
+        }
+
+        startWakeWordDetection()
+        return START_STICKY
     }
 
     override fun onDestroy() {
@@ -155,16 +181,9 @@ class KaldiWakeWordService : Service() {
                 Log.d(TAG, "Starting Aimybox wake word detection")
                 Log.i(TAG, "🎤 Background wake word detection is now LISTENING for 'hola iris'")
 
-                // Check if assistant screen is active before enabling voice trigger
-                val isAssistantActive = appStateManager.isAssistantActive.value
-
-                if (!isAssistantActive) {
-                    // Only enable voice trigger if assistant screen is not active
-                    aimybox.isVoiceTriggerActivated = true
-                    Log.d(TAG, "Voice trigger activated for background service")
-                } else {
-                    Log.d(TAG, "Assistant screen active - monitoring wake word events without enabling trigger")
-                }
+                // Always enable voice trigger - Aimybox will handle conflicts internally
+                aimybox.isVoiceTriggerActivated = true
+                Log.d(TAG, "Voice trigger activated for background service")
 
                 // Subscribe to voice trigger events
                 val voiceTriggerChannel = aimybox.voiceTriggerEvents.openSubscription()
@@ -181,11 +200,11 @@ class KaldiWakeWordService : Service() {
                             }
                             is VoiceTrigger.Event.Stopped -> {
                                 Log.w(TAG, "⚠️ Voice trigger stopped")
-                                // Only restart if we're still supposed to be active and assistant screen is not active
-                                if (isDetectionActive && !appStateManager.isAssistantActive.value) {
+                                // Restart if detection is still supposed to be active
+                                if (isDetectionActive && hasRecordAudioPermission()) {
                                     Log.w(TAG, "Voice trigger stopped unexpectedly, restarting...")
                                     delay(RESTART_DELAY)
-                                    if (isDetectionActive && hasRecordAudioPermission() && !appStateManager.isAssistantActive.value) {
+                                    if (isDetectionActive) {
                                         aimybox.isVoiceTriggerActivated = true
                                     }
                                 }
@@ -199,16 +218,16 @@ class KaldiWakeWordService : Service() {
                 Log.e(TAG, "Error in wake word detection", e)
                 isDetectionActive = false
                 // Restart detection after delay if conditions are met
-                if (restartAttempts < maxRestartAttempts && hasRecordAudioPermission() && !appStateManager.isAssistantActive.value) {
+                if (restartAttempts < maxRestartAttempts && hasRecordAudioPermission()) {
                     restartAttempts++
                     serviceScope?.launch {
                         delay(RESTART_DELAY)
-                        if (!isDetectionActive && !appStateManager.isAssistantActive.value) {
+                        if (!isDetectionActive) {
                             startWakeWordDetection()
                         }
                     }
                 } else {
-                    Log.e(TAG, "Max restart attempts reached, permission lost, or assistant screen active")
+                    Log.e(TAG, "Max restart attempts reached or permission lost")
                 }
             }
         }

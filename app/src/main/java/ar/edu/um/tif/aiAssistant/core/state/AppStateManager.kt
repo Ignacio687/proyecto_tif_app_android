@@ -64,31 +64,13 @@ class AppStateManager @Inject constructor(
 
         if (wasAssistantActive != isAssistantActive) {
             _isAssistantActive.value = isAssistantActive
-
-            // Handle assistant screen lifecycle
-            if (!wasAssistantActive && isAssistantActive) {
-                // Entering assistant screen (and app is in foreground)
-                Log.d(TAG, "Assistant screen became active - notifying service manager")
-                wakeWordServiceManager.onAssistantScreenEntered()
-            } else if (wasAssistantActive && !isAssistantActive) {
-                // Exiting assistant screen (navigating away or app going to background)
-                Log.d(TAG, "Assistant screen became inactive - notifying service manager")
-                wakeWordServiceManager.onAssistantScreenExited()
-            }
+            // Service now runs continuously and handles delegation automatically
+            // No need to notify service manager about screen changes
         }
     }
 
     fun setAssistantActive(active: Boolean) {
-        val wasActive = _isAssistantActive.value
         _isAssistantActive.value = active
-
-        // Handle assistant lifecycle when called directly
-        if (!wasActive && active) {
-            Log.d(TAG, "Assistant activated - notifying service manager")
-            wakeWordServiceManager.onAssistantScreenEntered()
-        } else if (wasActive && !active) {
-            Log.d(TAG, "Assistant deactivated - notifying service manager")
-            wakeWordServiceManager.onAssistantScreenExited()
-        }
+        // Service handles delegation automatically based on app state
     }
 }

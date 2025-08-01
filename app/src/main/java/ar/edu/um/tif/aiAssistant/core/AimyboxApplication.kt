@@ -40,6 +40,22 @@ class AimyboxApplication : Application(), AimyboxProvider {
         System.setProperty("jna.nosys", "true")
 
         // Initialize wake word service manager and health monitoring
+        checkAndRestartServiceIfNeeded()
+    }
+
+    private fun checkAndRestartServiceIfNeeded() {
+        // Check if the service should be running but isn't
+        if (wakeWordServiceManager.isServiceEnabled) {
+            val isServiceRunning = wakeWordServiceManager.isServiceRunning()
+            if (!isServiceRunning) {
+                android.util.Log.d(TAG, "Service is enabled but not running - restarting it")
+                wakeWordServiceManager.startService()
+            } else {
+                android.util.Log.d(TAG, "Service is enabled and already running")
+            }
+        } else {
+            android.util.Log.d(TAG, "Service is disabled in settings")
+        }
     }
 
     override val aimybox by lazy { createAimybox(this) }

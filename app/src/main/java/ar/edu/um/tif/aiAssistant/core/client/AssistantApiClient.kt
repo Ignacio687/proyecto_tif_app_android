@@ -4,6 +4,7 @@ import ar.edu.um.tif.aiAssistant.core.data.model.ApiAssistantModels.ServerRespon
 import ar.edu.um.tif.aiAssistant.core.data.model.ApiAssistantModels.UserRequest
 import ar.edu.um.tif.aiAssistant.core.data.model.ApiConversationModels.ConversationHistoryResponse
 import ar.edu.um.tif.aiAssistant.core.data.repository.AuthRepository
+import ar.edu.um.tif.aiAssistant.core.skills.CallContactSkill
 import com.justai.aimybox.Aimybox
 import com.justai.aimybox.api.DialogApi
 import com.justai.aimybox.core.CustomSkill
@@ -61,19 +62,41 @@ class AssistantApiClient @Inject constructor(
         override val query: String? = null
     ) : Response
 
-    override fun createRequest(query: String): UserRequest = UserRequest(userReq = query)
+    override fun createRequest(query: String): UserRequest {
+        // Check if this is a patch request from CallContactSkill
+        if (query.startsWith(CallContactSkill.PATCH_REQUEST_PREFIX)) {
+            Log.d(TAG, "Detected patch request, parsing contacts data")
 
-    /**
-     * Create a request with system message for contact patching
-     */
-    fun createRequestWithSystemMessage(query: String, contactsList: List<String>): UserRequest {
-        return UserRequest(
-            userReq = query,
-            systemMessage = ar.edu.um.tif.aiAssistant.core.data.model.ApiAssistantModels.SystemMessage(
-                patchLast = true,
-                contactsList = contactsList
-            )
-        )
+            // Parse the patch request format: "CONTACT_PATCH:original_query|contact1,contact2,contact3"
+            val patchData = query.removePrefix(CallContactSkill.PATCH_REQUEST_PREFIX)
+            val parts = patchData.split("|", limit = 2)
+
+            if (parts.size == 2) {
+                val originalQuery = parts[0]
+                val contactsString = parts[1]
+                val contactsList = if (contactsString.isNotBlank()) {
+                    contactsString.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+                } else {
+                    emptyList()
+                }
+
+                Log.d(TAG, "Patch request - Original query: '$originalQuery', Contacts count: ${contactsList.size}")
+
+                // Create UserRequest with SystemMessage for contact patching
+                return UserRequest(
+                    userReq = originalQuery,
+                    systemMessage = ar.edu.um.tif.aiAssistant.core.data.model.ApiAssistantModels.SystemMessage(
+                        patchLast = true,
+                        contactsList = contactsList
+                    )
+                )
+            } else {
+                Log.w(TAG, "Invalid patch request format, falling back to normal request")
+            }
+        }
+
+        // Normal request without patch data
+        return UserRequest(userReq = query)
     }
 
     /**
@@ -86,7 +109,8 @@ class AssistantApiClient @Inject constructor(
             ?: return ServerResponse(
                 serverReply = "Not authenticated. Please log in first.",
                 appParams = listOf(mapOf("question" to false)),
-                skills = emptyList()
+                skills = emptyList(),
+                originalQuery = request.userReq
             )
 
         val response = runCatching {
@@ -103,19 +127,15 @@ class AssistantApiClient @Inject constructor(
             return ServerResponse(
                 serverReply = "Failed to connect to assistant",
                 appParams = listOf(mapOf("question" to false)),
-                skills = emptyList()
+                skills = emptyList(),
+                originalQuery = request.userReq
             )
         }
 
-        return response
-    }
-
-    /**
-     * Send a request with system message (used for contact patching)
-     */
-    suspend fun sendRequestWithSystemMessage(query: String, contactsList: List<String>): ServerResponse {
-        val request = createRequestWithSystemMessage(query, contactsList)
-        return send(request)
+        // Return response with the original user query populated
+        return response.copy(
+            originalQuery = request.userReq
+        )
     }
 
     /**

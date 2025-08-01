@@ -130,6 +130,7 @@ class AssistantViewModel @Inject constructor(
     /**
      * Send a text message to the assistant
      */
+    @RequiresPermission(Manifest.permission.RECORD_AUDIO)
     fun sendMessage(message: String) {
         if (message.isBlank()) return
 

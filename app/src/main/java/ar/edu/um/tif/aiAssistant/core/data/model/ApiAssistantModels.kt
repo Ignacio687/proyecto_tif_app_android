@@ -43,7 +43,10 @@ object ApiAssistantModels {
         val serverReply: String,
         @SerialName("app_params")
         val appParams: List<Map<String, Boolean>>? = null,
-        val skills: List<Skill>? = null
+        val skills: List<Skill>? = null,
+        // Add field to store the original user query (not serialized from server)
+        @kotlinx.serialization.Transient
+        val originalQuery: String? = null
     ) : Response {
 
         override val action: String?
@@ -59,7 +62,7 @@ object ApiAssistantModels {
             get() = listOf(TextReply(null, serverReply))
 
         override val query: String?
-            get() = null
+            get() = originalQuery
     }
 
     /**
