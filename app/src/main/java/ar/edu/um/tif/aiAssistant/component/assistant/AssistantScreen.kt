@@ -171,10 +171,7 @@ fun AssistantScreen(
             when (it::class.simpleName) {
                 "ResponseWidget" -> {
                     val text = it.javaClass.getMethod("getText").invoke(it) as String
-                    // Only add the response to chat if it should not be filtered
-                    if (!viewModel.shouldFilterResponse(text)) {
-                        viewModel.addVoiceResponseMessage(text)
-                    }
+                    viewModel.addVoiceResponseMessage(text)
                     null // Don't create a widget
                 }
                 "RequestWidget" -> {

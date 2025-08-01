@@ -66,9 +66,6 @@ class AssistantViewModel @Inject constructor(
     val aimyboxState: LiveData<Aimybox.State>
         get() = _aimyboxState
 
-    // Store the last response to check for skills in widget processing
-    private var lastServerResponse: ar.edu.um.tif.aiAssistant.core.data.model.ApiAssistantModels.ServerResponse? = null
-
     init {
         // Load conversation history when ViewModel is created
         loadConversationHistory()
@@ -139,51 +136,27 @@ class AssistantViewModel @Inject constructor(
         // Add user message to the chat
         addMessage(ChatMessage(content = message, isFromUser = true))
 
+        // Use Aimybox's sendRequest method to trigger the full DialogApi flow including skills
         viewModelScope.launch {
             try {
                 _uiState.update { currentState -> currentState.copy(isLoading = true, errorMessage = null) }
 
-                // Create request and use the DialogApi interface directly
-                val request = UserRequest(userReq = message)
-                val response = assistantApiClient.send(request)
-
-                // Get the text from the first reply
-                // TextReply in AimyBox has a 'text' property we need to cast
-                val replyText = when (val firstReply = response.replies.firstOrNull()) {
-                    is com.justai.aimybox.model.reply.TextReply -> firstReply.text
-                    else -> "No response from assistant"
-                }
-
-                // Check if the response has skills that might need special handling
-                val hasCallContactSkill = response.skills?.any { it.action == "call_contact" } == true
-
-                // Only add the assistant's response to chat if it doesn't have call_contact skill
-                // The skill will handle adding the appropriate message based on whether contact is found
-                if (!hasCallContactSkill) {
-                    addMessage(ChatMessage(content = replyText, isFromUser = false))
-                }
-
-                // Store the last response for skill checking in widget processing
-                lastServerResponse = response
+                // Use Aimybox's sendRequest which will trigger the full DialogApi flow including skills
+                aimybox.sendRequest(message)
 
                 _uiState.update { currentState -> currentState.copy(isLoading = false, errorMessage = null) }
             } catch (e: Exception) {
                 // Check specifically for authentication errors
                 if (e is ar.edu.um.tif.aiAssistant.core.customException.UnauthorizedAccessException) {
-                    // Update UI state to indicate authentication error
                     _uiState.update { it.copy(
                         isLoading = false,
                         authError = true
                     )}
                 } else {
-                    // Handle other errors as before
                     _uiState.update { currentState -> currentState.copy(
                         isLoading = false,
                         errorMessage = "Unable to process your request. Please try again later."
                     )}
-
-                    // Log the detailed error
-                    android.util.Log.e("AssistantViewModel", "Error sending message", e)
 
                     // Add user-friendly error message to chat
                     addMessage(ChatMessage(
@@ -339,25 +312,5 @@ class AssistantViewModel @Inject constructor(
                 )}
             }
         }
-    }
-
-    /**
-     * Check if a response text should be filtered out (not added to chat)
-     * because it's part of a skill that will handle its own messaging
-     */
-    fun shouldFilterResponse(responseText: String): Boolean {
-        val response = lastServerResponse
-        if (response == null) return false
-
-        // Check if this response has call_contact skill and the text matches the server reply
-        val hasCallContactSkill = response.skills?.any { it.action == "call_contact" } == true
-        val matchesServerReply = response.replies.any { reply ->
-            when (reply) {
-                is com.justai.aimybox.model.reply.TextReply -> reply.text == responseText
-                else -> false
-            }
-        }
-
-        return hasCallContactSkill && matchesServerReply
     }
 }

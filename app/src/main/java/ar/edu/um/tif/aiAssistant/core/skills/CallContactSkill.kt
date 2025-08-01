@@ -13,17 +13,16 @@ import ar.edu.um.tif.aiAssistant.core.data.model.ApiAssistantModels.UserRequest
 import com.justai.aimybox.Aimybox
 import com.justai.aimybox.core.CustomSkill
 import com.justai.aimybox.model.Response
-import com.justai.aimybox.model.TextSpeech
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
-import org.json.JSONObject
 
 /**
- * CustomSkill that handles contact calling functionality.
- * This skill will be triggered when the assistant response has a "call_contact" action.
+ * Simple CustomSkill that handles contact calling functionality.
+ * When a contact is not found, it delegates back to the server with the contacts list.
  */
 class CallContactSkill(
     private val context: Context
@@ -32,33 +31,18 @@ class CallContactSkill(
     companion object {
         private const val TAG = "CallContactSkill"
         private const val ACTION_CALL_CONTACT = "call_contact"
-        private const val PARAM_DATA = "data"
-        private const val CONTACT_NAME_KEY = "contact_name"
+        private const val PARAM_CONTACT_NAME = "contact_name"
     }
 
-    // Data class to parse the nested JSON in the "data" field
     @Serializable
-    private data class ContactData(
+    private data class ContactParams(
         val contact_name: String
     )
 
-    override fun canHandleRequest(request: UserRequest): Boolean {
-        // Check if the request contains a calling-related keyword
-        // This is optional and helps optimize performance by filtering requests early
-        val callPatterns = listOf("llamar", "llama", "llamame", "comunicar", "comunicame", "contactar")
-        return callPatterns.any { request.query.contains(it, ignoreCase = true) }
-    }
-
-    override suspend fun onRequest(request: UserRequest, aimybox: Aimybox): UserRequest {
-        // Just pass the request through without modification
-        // This method is required by the CustomSkill interface
-        Log.d(TAG, "Processing request: ${request.query}")
-        return request
-    }
-
     override fun canHandle(response: ServerResponse): Boolean {
-        // Check if the response has the call_contact action
-        return response.skills?.any { it.action == ACTION_CALL_CONTACT } == true
+        val hasCallContactSkill = response.skills?.any { it.action == ACTION_CALL_CONTACT } == true
+        val actionMatches = response.action == ACTION_CALL_CONTACT
+        return hasCallContactSkill || actionMatches
     }
 
     @RequiresPermission(Manifest.permission.RECORD_AUDIO)
@@ -67,111 +51,82 @@ class CallContactSkill(
         aimybox: Aimybox,
         defaultHandler: suspend (Response) -> Unit
     ) {
-        Log.d(TAG, "Processing call contact response: ${response.skills}")
-
-        // Get the contact data JSON string from the response
-        val contactDataJson = response.skills?.find { it.action == ACTION_CALL_CONTACT }
-            ?.params?.get(PARAM_DATA)
-
-        Log.d(TAG, "Raw contact data: $contactDataJson")
-
-        // Parse the contact name from the data field using multiple approaches
-        val contactName = parseContactName(contactDataJson)
-
-        if (contactName.isNullOrBlank()) {
-            // If no contact name provided, inform the user and standby
-            val speech = TextSpeech("No se pudo identificar el contacto a llamar.")
-            aimybox.speak(speech, Aimybox.NextAction.STANDBY)
-            return
-        }
-
-        // Find the contact phone number
-        val phoneNumber = withContext(Dispatchers.IO) {
-            findContactPhoneNumber(contactName)
-        }
-
-        if (phoneNumber.isNullOrBlank()) {
-            // If no phone number found, inform the user and standby
-            val speech = TextSpeech("No se encontró el contacto $contactName o no tiene un número de teléfono.")
-            aimybox.speak(speech, Aimybox.NextAction.STANDBY)
-            return
-        }
-
-        // Call the contact
         try {
-            val callIntent = Intent(Intent.ACTION_CALL).apply {
-                data = Uri.parse("tel:$phoneNumber")
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            // Extract contact name from skill parameters
+            val contactName = extractContactName(response)
+            if (contactName.isNullOrBlank()) {
+                Log.w(TAG, "No contact name found in response")
+                defaultHandler(response)
+                return
             }
-            context.startActivity(callIntent)
 
-            // Inform the user that the call is being placed
-            val speech = TextSpeech("Llamando a $contactName.")
-            aimybox.speak(speech, Aimybox.NextAction.STANDBY)
+            // Do contact lookup
+            val phoneNumber = withContext(Dispatchers.IO) {
+                findContactPhoneNumber(contactName)
+            }
+
+            if (phoneNumber != null) {
+                Log.d(TAG, "Phone number found: $phoneNumber for $contactName")
+
+                // Trigger speech synthesis manually
+                val speeches = listOf(com.justai.aimybox.model.TextSpeech(response.serverReply))
+                val speakJob = aimybox.speak(
+                    speeches,
+                    nextAction = com.justai.aimybox.Aimybox.NextAction.NOTHING // Don't auto-transition state
+                )
+
+                // Wait for speech to complete, then make the call
+                speakJob?.join()
+
+                // Make the call after speech synthesis completes
+                makeCall(phoneNumber, contactName)
+                Log.d(TAG, "Successfully initiated call to $contactName")
+
+                // Return to standby state
+                aimybox.standby()
+            } else {
+                Log.w(TAG, "Contact '$contactName' not found in device contacts")
+                // Call defaultHandler for unknown contacts
+                defaultHandler(response)
+            }
         } catch (e: Exception) {
-            Log.e(TAG, "Error making call: ${e.message}", e)
-            // Handle any exceptions that might occur during the call intent
-            val speech = TextSpeech("No se pudo realizar la llamada. Verifique los permisos de la aplicación.")
-            aimybox.speak(speech, Aimybox.NextAction.STANDBY)
+            Log.e(TAG, "Error in CallContactSkill", e)
+            // Always call defaultHandler as fallback
+            try {
+                defaultHandler(response)
+            } catch (handlerException: Exception) {
+                Log.e(TAG, "Error in defaultHandler fallback", handlerException)
+            }
         }
     }
 
     /**
-     * Attempts to parse the contact name from the data string using multiple approaches
-     * to handle different possible formats from the server.
+     * Extract contact name from the server response skill parameters
      */
-    private fun parseContactName(contactDataJson: String?): String? {
-        if (contactDataJson.isNullOrBlank()) return null
+    private fun extractContactName(response: ServerResponse): String? {
+        val skill = response.skills?.find { it.action == ACTION_CALL_CONTACT }
+        return skill?.params?.get(PARAM_CONTACT_NAME)
+            ?: skill?.params?.get("data")?.let { parseContactNameFromJson(it) }
+    }
 
+    /**
+     * Parse contact name from JSON data parameter (fallback for existing format)
+     */
+    private fun parseContactNameFromJson(jsonData: String): String? {
         return try {
-            // Try several parsing approaches to handle different formats
-
-            // Approach 1: Try to parse as a properly escaped JSON string
-            try {
-                Json.decodeFromString<ContactData>(contactDataJson).contact_name
-            } catch (e: Exception) {
-                Log.d(TAG, "Failed to parse with kotlinx.serialization: ${e.message}")
-                null
-            }
-            // Approach 2: Try to parse as a raw JSON object using JSONObject
-                ?: try {
-                    JSONObject(contactDataJson).optString(CONTACT_NAME_KEY)
-                } catch (e: Exception) {
-                    Log.d(TAG, "Failed to parse with JSONObject: ${e.message}")
-                    null
-                }
-                // Approach 3: Try to handle malformed JSON by extracting the name directly
-                ?: try {
-                    // Extract anything between quotes after "contact_name":
-                    val regex = "\"$CONTACT_NAME_KEY\"\\s*:\\s*\"([^\"]*)\"".toRegex()
-                    val matchResult = regex.find(contactDataJson)
-                    matchResult?.groupValues?.getOrNull(1)
-                } catch (e: Exception) {
-                    Log.d(TAG, "Failed to parse with regex: ${e.message}")
-                    null
-                }
-                // If all approaches fail, return null
-                ?: null
-
+            Json.decodeFromString<ContactParams>(jsonData).contact_name
         } catch (e: Exception) {
-            Log.e(TAG, "Error parsing contact name: ${e.message}", e)
+            Log.w(TAG, "Failed to parse contact name from JSON: $jsonData", e)
             null
         }
     }
 
     /**
-     * Searches for a contact by name and returns their phone number.
-     * @param contactName The name of the contact to search for.
-     * @return The phone number of the contact, or null if not found.
+     * Search for contact by name and return phone number
      */
     private fun findContactPhoneNumber(contactName: String): String? {
-        var phoneNumber: String? = null
         var cursor: Cursor? = null
-
         try {
-            Log.d(TAG, "Searching for contact: $contactName")
-
-            // Query the contacts database
             val uri = ContactsContract.CommonDataKinds.Phone.CONTENT_URI
             val projection = arrayOf(
                 ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
@@ -180,29 +135,44 @@ class CallContactSkill(
             val selection = "${ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME} LIKE ?"
             val selectionArgs = arrayOf("%$contactName%")
 
-            cursor = context.contentResolver.query(
-                uri, projection, selection, selectionArgs, null
-            )
+            cursor = context.contentResolver.query(uri, projection, selection, selectionArgs, null)
 
-            // Find the first matching contact
             if (cursor?.moveToFirst() == true) {
-                val nameIndex = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME)
                 val numberIndex = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER)
-
-                if (nameIndex != -1 && numberIndex != -1) {
-                    val name = cursor.getString(nameIndex)
-                    phoneNumber = cursor.getString(numberIndex)
-                    Log.d(TAG, "Found contact: $name with number: $phoneNumber")
+                if (numberIndex != -1) {
+                    return cursor.getString(numberIndex)
                 }
-            } else {
-                Log.d(TAG, "No contacts found matching: $contactName")
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Error finding contact: ${e.message}", e)
+            Log.e(TAG, "Error finding contact: $contactName", e)
         } finally {
             cursor?.close()
         }
+        return null
+    }
 
-        return phoneNumber
+    /**
+     * Make the actual phone call
+     */
+    private fun makeCall(phoneNumber: String, contactName: String) {
+        try {
+            // Check if we have CALL_PHONE permission before attempting to make the call
+            if (context.checkSelfPermission(android.Manifest.permission.CALL_PHONE)
+                != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                Log.w(TAG, "CALL_PHONE permission not granted, cannot make call to $contactName")
+                return
+            }
+
+            val callIntent = Intent(Intent.ACTION_CALL).apply {
+                data = Uri.parse("tel:$phoneNumber")
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            }
+            context.startActivity(callIntent)
+            Log.d(TAG, "Initiated call to $contactName ($phoneNumber)")
+        } catch (e: SecurityException) {
+            Log.e(TAG, "SecurityException: Missing CALL_PHONE permission for $contactName", e)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to make call to $contactName", e)
+        }
     }
 }

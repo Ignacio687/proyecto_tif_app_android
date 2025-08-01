@@ -1,15 +1,18 @@
 package ar.edu.um.tif.aiAssistant.core.di
 
+import android.content.Context
 import ar.edu.um.tif.aiAssistant.BuildConfig
 import ar.edu.um.tif.aiAssistant.core.auth.AuthManager
 import ar.edu.um.tif.aiAssistant.core.client.AuthApiClient
 import ar.edu.um.tif.aiAssistant.core.client.AssistantApiClient
 import ar.edu.um.tif.aiAssistant.core.customException.UnauthorizedAccessException
 import ar.edu.um.tif.aiAssistant.core.data.repository.AuthRepository
+import ar.edu.um.tif.aiAssistant.core.skills.CallContactSkill
 import com.justai.aimybox.core.CustomSkill
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
+import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import io.ktor.client.*
 import io.ktor.client.engine.okhttp.*
@@ -212,6 +215,20 @@ object NetworkModule {
     @Singleton
     fun provideAuthApiClient(@BaseHttpClient client: HttpClient, json: Json): AuthApiClient {
         return AuthApiClient(client, json)
+    }
+
+    @Provides
+    @Singleton
+    fun provideCallContactSkill(@ApplicationContext context: Context): CallContactSkill {
+        return CallContactSkill(context)
+    }
+
+    @Provides
+    @Singleton
+    fun provideCustomSkills(callContactSkill: CallContactSkill): LinkedHashSet<CustomSkill<*, *>> {
+        val skills = linkedSetOf<CustomSkill<*, *>>()
+        skills.add(callContactSkill)
+        return skills
     }
 
     @Provides

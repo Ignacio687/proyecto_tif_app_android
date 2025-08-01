@@ -14,11 +14,21 @@ object ApiAssistantModels {
     @Serializable
     data class UserRequest(
         @SerialName("user_req")
-        val userReq: String
+        val userReq: String,
+        @SerialName("system_message")
+        val systemMessage: SystemMessage? = null
     ) : Request {
         override val query: String
             get() = userReq
     }
+
+    @Serializable
+    data class SystemMessage(
+        @SerialName("patch_last")
+        val patchLast: Boolean,
+        @SerialName("contacts_list")
+        val contactsList: List<String>
+    )
 
     @Serializable
     data class Skill(
@@ -35,11 +45,12 @@ object ApiAssistantModels {
         val appParams: List<Map<String, Boolean>>? = null,
         val skills: List<Skill>? = null
     ) : Response {
+
         override val action: String?
             get() = skills?.firstOrNull()?.action
 
         override val question: Boolean?
-            get() = appParams?.firstOrNull()?.get("question")
+            get() = appParams?.firstOrNull()?.get("question") ?: false
 
         override val intent: String?
             get() = skills?.firstOrNull()?.name

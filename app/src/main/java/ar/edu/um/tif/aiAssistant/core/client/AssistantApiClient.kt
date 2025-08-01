@@ -64,6 +64,19 @@ class AssistantApiClient @Inject constructor(
     override fun createRequest(query: String): UserRequest = UserRequest(userReq = query)
 
     /**
+     * Create a request with system message for contact patching
+     */
+    fun createRequestWithSystemMessage(query: String, contactsList: List<String>): UserRequest {
+        return UserRequest(
+            userReq = query,
+            systemMessage = ar.edu.um.tif.aiAssistant.core.data.model.ApiAssistantModels.SystemMessage(
+                patchLast = true,
+                contactsList = contactsList
+            )
+        )
+    }
+
+    /**
      * Implementation of the DialogApi interface method.
      * Gets the token directly from AuthRepository.
      */
@@ -73,7 +86,7 @@ class AssistantApiClient @Inject constructor(
             ?: return ServerResponse(
                 serverReply = "Not authenticated. Please log in first.",
                 appParams = listOf(mapOf("question" to false)),
-                skills = null
+                skills = emptyList()
             )
 
         val response = runCatching {
@@ -85,13 +98,38 @@ class AssistantApiClient @Inject constructor(
                 }
                 setBody(request)
             }.body<ServerResponse>()
-        }.getOrNull() ?: return ServerResponse(
-            serverReply = "Failed to connect to assistant",
-            appParams = listOf(mapOf("question" to false)),
-            skills = null
-        )
+        }.getOrElse { exception ->
+            Log.e(TAG, "Failed to send request", exception)
+            return ServerResponse(
+                serverReply = "Failed to connect to assistant",
+                appParams = listOf(mapOf("question" to false)),
+                skills = emptyList()
+            )
+        }
 
         return response
+    }
+
+    /**
+     * Send a request with system message (used for contact patching)
+     */
+    suspend fun sendRequestWithSystemMessage(query: String, contactsList: List<String>): ServerResponse {
+        val request = createRequestWithSystemMessage(query, contactsList)
+        return send(request)
+    }
+
+    /**
+     * Add a custom skill to the dialog API
+     */
+    fun addCustomSkill(skill: CustomSkill<UserRequest, ServerResponse>) {
+        customSkills.add(skill)
+    }
+
+    /**
+     * Get the number of registered custom skills
+     */
+    fun getCustomSkillsCount(): Int {
+        return customSkills.size
     }
 
     /**
