@@ -26,6 +26,7 @@ object ApiAssistantModels {
     data class SystemMessage(
         @SerialName("patch_last")
         val patchLast: Boolean,
+        /** Similar contacts (name kept as contacts_list for API compatibility). */
         @SerialName("contacts_list")
         val contactsList: List<String>
     )

@@ -3,13 +3,13 @@ package ar.edu.um.tif.aiAssistant.core.skills
 import android.Manifest
 import android.content.Context
 import android.content.Intent
-import android.database.Cursor
 import android.net.Uri
-import android.provider.ContactsContract
 import android.util.Log
 import androidx.annotation.RequiresPermission
 import ar.edu.um.tif.aiAssistant.core.data.model.ApiAssistantModels.ServerResponse
 import ar.edu.um.tif.aiAssistant.core.data.model.ApiAssistantModels.UserRequest
+import ar.edu.um.tif.aiAssistant.core.service.ContactService
+import ar.edu.um.tif.aiAssistant.core.service.PatchResponseCoordinator
 import com.justai.aimybox.Aimybox
 import com.justai.aimybox.core.CustomSkill
 import com.justai.aimybox.model.Response
@@ -19,13 +19,14 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
 /**
- * Refactored CustomSkill that handles contact calling with server-side contact matching.
- * Implements a two-phase mechanism:
- * Phase 1: Try local contact lookup, if not found proceed to Phase 2
- * Phase 2: Send contacts list to server for intelligent matching
+ * CustomSkill that handles call invocation and response for contact calling.
+ * Uses [ContactService] for contact retrieval and matching.
+ * Phase 1: Exact match locally; Phase 2: Send at most 5 similar contacts to server for disambiguation.
  */
 class CallContactSkill(
-    private val context: Context
+    private val context: Context,
+    private val contactService: ContactService,
+    private val patchResponseCoordinator: PatchResponseCoordinator
 ) : CustomSkill<UserRequest, ServerResponse> {
 
     companion object {
@@ -63,9 +64,9 @@ class CallContactSkill(
                 return
             }
 
-            // Phase 1: Try local contact lookup with EXACT matching
+            // Phase 1: Try local contact lookup with EXACT matching (via ContactService)
             val phoneNumber = withContext(Dispatchers.IO) {
-                findContactPhoneNumberExact(contactName)
+                contactService.findContactPhoneNumberExact(contactName)
             }
 
             if (phoneNumber != null) {
@@ -94,8 +95,8 @@ class CallContactSkill(
                 val originalQuery = response.query ?: "llamar a $contactName"
                 Log.d(TAG, "Using original query from response.query for Phase 2: $originalQuery")
 
-                // Phase 2: Delegate to Aimybox sendRequest with patch request
-                initiateContactPatchingPhase(aimybox, originalQuery)
+                // Phase 2: Delegate to Aimybox sendRequest with patch request (at most 5 similar contacts)
+                initiateContactPatchingPhase(aimybox, originalQuery, contactName)
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error in CallContactSkill", e)
@@ -111,39 +112,29 @@ class CallContactSkill(
     }
 
     /**
-     * Phase 2: Contact Patching - Send request via Aimybox with contact list
+     * Phase 2: Contact Patching - Send at most 5 similar contacts to server for disambiguation
      */
     @RequiresPermission(Manifest.permission.RECORD_AUDIO)
-    private suspend fun initiateContactPatchingPhase(aimybox: Aimybox, originalQuery: String) {
+    private suspend fun initiateContactPatchingPhase(aimybox: Aimybox, originalQuery: String, contactName: String) {
         try {
-            Log.d(TAG, "Phase 2: Collecting device contacts for server-side matching")
+            Log.d(TAG, "Phase 2: Collecting at most ${ContactService.MAX_SIMILAR_CONTACTS} similar contacts for server-side matching")
 
-            // Collect all device contact names
-            val deviceContacts = withContext(Dispatchers.IO) {
-                getAllDeviceContactNames()
+            // Similar contacts (at most 5); sent as contacts_list for API compatibility
+            val similarContacts = withContext(Dispatchers.IO) {
+                contactService.getSimilarContactNames(contactName, ContactService.MAX_SIMILAR_CONTACTS)
             }
 
-            if (deviceContacts.isEmpty()) {
-                Log.w(TAG, "Phase 2: No contacts found on device")
-
-                // Inform user that no contacts were found
-                val speeches = listOf(com.justai.aimybox.model.TextSpeech("No hay contactos en tu teléfono"))
-                val speakJob = aimybox.speak(
-                    speeches,
-                    nextAction = com.justai.aimybox.Aimybox.NextAction.STANDBY
-                )
-
-                // Wait for speech to complete, then go to standby
-                speakJob?.join()
-                return
+            if (similarContacts.isEmpty()) {
+                Log.w(TAG, "Phase 2: No similar contacts found, sending patch with empty list so server can respond")
             }
 
-            Log.d(TAG, "Phase 2: Found ${deviceContacts.size} contacts on device")
-
-            // Create patch request message that AssistantApiClient will detect
-            val patchRequestMessage = createPatchRequestMessage(originalQuery, deviceContacts)
+            // Patch message: similar contacts (or empty); server decides response text. Var name contactsList kept for compatibility.
+            val patchRequestMessage = createPatchRequestMessage(originalQuery, similarContacts)
 
             Log.d(TAG, "Phase 2: Sending patch request via Aimybox.sendRequest()")
+
+            // Signal UI to replace the first response with the patch response when it arrives
+            patchResponseCoordinator.replaceLastWithNext = true
 
             // Use Aimybox's sendRequest - this will go through AssistantApiClient
             // which will detect the patch format and create proper UserRequest
@@ -156,10 +147,11 @@ class CallContactSkill(
     }
 
     /**
-     * Create a patch request message with embedded contact data
+     * Create a patch request message with similar contacts (exposed as contacts_list for compatibility).
      * Format: "CONTACT_PATCH:original_query|contact1,contact2,contact3"
      */
     private fun createPatchRequestMessage(originalQuery: String, contactsList: List<String>): String {
+        // contactsList = similar contacts; name kept for API compatibility
         val contactsString = contactsList.joinToString(",")
         return "$PATCH_REQUEST_PREFIX$originalQuery|$contactsString"
     }
@@ -183,75 +175,6 @@ class CallContactSkill(
             Log.w(TAG, "Failed to parse contact name from JSON: $jsonData", e)
             null
         }
-    }
-
-    /**
-     * Search for contact by EXACT name match and return phone number
-     */
-    private fun findContactPhoneNumberExact(contactName: String): String? {
-        var cursor: Cursor? = null
-        try {
-            val uri = ContactsContract.CommonDataKinds.Phone.CONTENT_URI
-            val projection = arrayOf(
-                ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
-                ContactsContract.CommonDataKinds.Phone.NUMBER
-            )
-            // Use exact match instead of LIKE for precise matching
-            val selection = "${ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME} = ?"
-            val selectionArgs = arrayOf(contactName)
-
-            cursor = context.contentResolver.query(uri, projection, selection, selectionArgs, null)
-
-            if (cursor?.moveToFirst() == true) {
-                val numberIndex = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER)
-                if (numberIndex != -1) {
-                    val foundNumber = cursor.getString(numberIndex)
-                    Log.d(TAG, "Exact match found for '$contactName': $foundNumber")
-                    return foundNumber
-                }
-            }
-
-            Log.d(TAG, "No exact match found for contact: '$contactName'")
-        } catch (e: Exception) {
-            Log.e(TAG, "Error finding contact: $contactName", e)
-        } finally {
-            cursor?.close()
-        }
-        return null
-    }
-
-    /**
-     * Collect all contact names from device for server-side matching
-     */
-    private fun getAllDeviceContactNames(): List<String> {
-        val contactNames = mutableSetOf<String>()
-        var cursor: Cursor? = null
-
-        try {
-            val uri = ContactsContract.CommonDataKinds.Phone.CONTENT_URI
-            val projection = arrayOf(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME)
-
-            cursor = context.contentResolver.query(uri, projection, null, null, null)
-
-            if (cursor != null) {
-                val nameIndex = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME)
-                if (nameIndex != -1) {
-                    while (cursor.moveToNext()) {
-                        val name = cursor.getString(nameIndex)
-                        if (!name.isNullOrBlank()) {
-                            contactNames.add(name.trim())
-                        }
-                    }
-                }
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Error collecting device contacts", e)
-        } finally {
-            cursor?.close()
-        }
-
-        Log.d(TAG, "Collected ${contactNames.size} unique contact names from device")
-        return contactNames.toList()
     }
 
     /**

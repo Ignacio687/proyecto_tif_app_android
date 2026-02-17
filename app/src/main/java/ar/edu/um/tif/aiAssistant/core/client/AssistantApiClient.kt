@@ -74,13 +74,14 @@ class AssistantApiClient @Inject constructor(
             if (parts.size == 2) {
                 val originalQuery = parts[0]
                 val contactsString = parts[1]
+                // Similar contacts; contactsList var name kept for API compatibility
                 val contactsList = if (contactsString.isNotBlank()) {
                     contactsString.split(",").map { it.trim() }.filter { it.isNotEmpty() }
                 } else {
                     emptyList()
                 }
 
-                Log.d(TAG, "Patch request - Original query: '$originalQuery', Contacts count: ${contactsList.size}")
+                Log.d(TAG, "Patch request - Original query: '$originalQuery', Similar contacts count: ${contactsList.size}")
 
                 // Create UserRequest with SystemMessage for contact patching
                 return UserRequest(

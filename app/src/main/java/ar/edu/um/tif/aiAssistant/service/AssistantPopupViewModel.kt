@@ -7,6 +7,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import ar.edu.um.tif.aiAssistant.core.auth.AuthManager
 import ar.edu.um.tif.aiAssistant.core.data.repository.AssistantRepository
+import ar.edu.um.tif.aiAssistant.core.service.PatchResponseCoordinator
 import com.justai.aimybox.Aimybox
 import com.justai.aimybox.components.AimyboxAssistantViewModel
 import com.justai.aimybox.components.widget.AssistantWidget
@@ -38,7 +39,8 @@ data class PopupUiState(
 class AssistantPopupViewModel @Inject constructor(
     private val authManager: AuthManager,
     private val aimybox: Aimybox,
-    private val assistantRepository: AssistantRepository
+    private val assistantRepository: AssistantRepository,
+    private val patchResponseCoordinator: PatchResponseCoordinator
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(PopupUiState())
@@ -168,9 +170,26 @@ class AssistantPopupViewModel @Inject constructor(
     }
 
     /**
-     * Add a voice response message from Aimybox to the chat
+     * Add a voice response message from Aimybox to the chat.
+     * When [PatchResponseCoordinator.replaceLastWithNext] is true (contact patch flow),
+     * replaces the last assistant message so only the final reply is shown.
      */
     fun addVoiceResponseMessage(content: String) {
+        if (patchResponseCoordinator.replaceLastWithNext) {
+            patchResponseCoordinator.replaceLastWithNext = false
+            val messages = _uiState.value.messages
+            val lastAssistantIndex = messages.indexOfLast { !it.isFromUser }
+            if (lastAssistantIndex >= 0) {
+                val newMessage = PopupChatMessage(content = content, isFromUser = false)
+                _uiState.update { state ->
+                    val list = state.messages.toMutableList()
+                    list[lastAssistantIndex] = newMessage
+                    state.copy(messages = list, isLoading = false)
+                }
+                return
+            }
+        }
+
         // Check if this message is already in the chat to avoid duplicates
         val existingMessages = _uiState.value.messages
         val isAlreadyAdded = existingMessages.any {

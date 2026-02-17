@@ -7,6 +7,8 @@ import ar.edu.um.tif.aiAssistant.core.client.AuthApiClient
 import ar.edu.um.tif.aiAssistant.core.client.AssistantApiClient
 import ar.edu.um.tif.aiAssistant.core.customException.UnauthorizedAccessException
 import ar.edu.um.tif.aiAssistant.core.data.repository.AuthRepository
+import ar.edu.um.tif.aiAssistant.core.service.ContactService
+import ar.edu.um.tif.aiAssistant.core.service.PatchResponseCoordinator
 import ar.edu.um.tif.aiAssistant.core.skills.CallContactSkill
 import com.justai.aimybox.core.CustomSkill
 import dagger.Module
@@ -219,8 +221,18 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    fun provideCallContactSkill(@ApplicationContext context: Context): CallContactSkill {
-        return CallContactSkill(context)
+    fun provideContactService(@ApplicationContext context: Context): ContactService {
+        return ContactService(context)
+    }
+
+    @Provides
+    @Singleton
+    fun provideCallContactSkill(
+        @ApplicationContext context: Context,
+        contactService: ContactService,
+        patchResponseCoordinator: PatchResponseCoordinator
+    ): CallContactSkill {
+        return CallContactSkill(context, contactService, patchResponseCoordinator)
     }
 
     @Provides

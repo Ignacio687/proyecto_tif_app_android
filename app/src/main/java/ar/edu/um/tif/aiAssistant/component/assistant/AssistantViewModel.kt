@@ -9,6 +9,7 @@ import ar.edu.um.tif.aiAssistant.core.auth.AuthManager
 import ar.edu.um.tif.aiAssistant.core.data.model.ApiAssistantModels.UserRequest
 import ar.edu.um.tif.aiAssistant.core.data.repository.AssistantRepository
 import ar.edu.um.tif.aiAssistant.core.client.AssistantApiClient
+import ar.edu.um.tif.aiAssistant.core.service.PatchResponseCoordinator
 import com.justai.aimybox.Aimybox
 import com.justai.aimybox.components.AimyboxAssistantViewModel
 import com.justai.aimybox.components.widget.AssistantWidget
@@ -40,7 +41,8 @@ class AssistantViewModel @Inject constructor(
     private val assistantRepository: AssistantRepository,
     private val assistantApiClient: AssistantApiClient,
     private val authManager: AuthManager,
-    private val aimybox: Aimybox
+    private val aimybox: Aimybox,
+    private val patchResponseCoordinator: PatchResponseCoordinator
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AssistantUiState())
@@ -190,10 +192,27 @@ class AssistantViewModel @Inject constructor(
     }
 
     /**
-     * Add a response from the assistant to the chat (for voice interactions)
+     * Add a response from the assistant to the chat (for voice interactions).
+     * When [PatchResponseCoordinator.replaceLastWithNext] is true (contact patch flow),
+     * replaces the last assistant message with this response so only the final reply is shown.
      */
     fun addVoiceResponseMessage(text: String) {
         if (text.isBlank()) return
+
+        if (patchResponseCoordinator.replaceLastWithNext) {
+            patchResponseCoordinator.replaceLastWithNext = false
+            val messages = _uiState.value.messages
+            val lastAssistantIndex = messages.indexOfLast { !it.isFromUser }
+            if (lastAssistantIndex >= 0) {
+                val newMessage = ChatMessage(content = text, isFromUser = false)
+                _uiState.update { state ->
+                    val list = state.messages.toMutableList()
+                    list[lastAssistantIndex] = newMessage
+                    state.copy(messages = list)
+                }
+                return
+            }
+        }
 
         // Check if this message is already in the chat to avoid duplicates
         val existingMessages = _uiState.value.messages
