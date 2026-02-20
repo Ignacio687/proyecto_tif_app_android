@@ -139,6 +139,15 @@ fun AssistantScreen(
         }
     }
 
+    // When CallContactSkill fails due to missing CALL_PHONE permission, show permission dialog
+    val requestCallPermission by viewModel.requestCallPermissionLiveData.observeAsState(false)
+    LaunchedEffect(requestCallPermission) {
+        if (requestCallPermission) {
+            multiplePermissionsLauncher.launch(arrayOf(Manifest.permission.CALL_PHONE))
+            viewModel.consumeCallPermissionRequest()
+        }
+    }
+
     // Request essential permissions on initial composition if not already granted
     LaunchedEffect(Unit) {
         if (!hasEssentialPermissions) {

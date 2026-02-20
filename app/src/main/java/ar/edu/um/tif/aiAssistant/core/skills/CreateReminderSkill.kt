@@ -113,15 +113,13 @@ class CreateReminderSkill(
 
         if (inserted) {
             Log.d(TAG, "CreateReminderSkill: created reminder '$title' at $beginTimeMs")
-            val speeches = listOf(com.justai.aimybox.model.TextSpeech(response.serverReply))
-            aimybox.speak(speeches, nextAction = com.justai.aimybox.Aimybox.NextAction.NOTHING)
+            defaultHandler(response)
             aimybox.standby()
         } else {
             Log.w(TAG, "CreateReminderSkill: direct insert failed, falling back to calendar intent")
             try {
+                defaultHandler(response)
                 openCalendarInsertIntent(title, params.description, beginTimeMs, endTimeMs)
-                val speeches = listOf(com.justai.aimybox.model.TextSpeech(response.serverReply))
-                aimybox.speak(speeches, nextAction = com.justai.aimybox.Aimybox.NextAction.NOTHING)
                 aimybox.standby()
             } catch (e: Exception) {
                 Log.e(TAG, "CreateReminderSkill: fallback intent also failed", e)

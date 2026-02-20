@@ -186,6 +186,18 @@ fun AssistantPopupScreen(
         }
     }
 
+    // When CallContactSkill fails due to missing CALL_PHONE permission, show permission dialog
+    val requestCallPermission by viewModel.requestCallPermissionLiveData.observeAsState(false)
+    val callPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { _ -> /* result handled; consume already called after launch */ }
+    LaunchedEffect(requestCallPermission) {
+        if (requestCallPermission) {
+            callPermissionLauncher.launch(Manifest.permission.CALL_PHONE)
+            viewModel.consumeCallPermissionRequest()
+        }
+    }
+
     // Monitor MANUAL scroll state changes - only expand when user manually scrolls
     LaunchedEffect(scrollState.isScrollInProgress) {
         // Only trigger expansion if:

@@ -9,6 +9,7 @@ import androidx.annotation.RequiresPermission
 import ar.edu.um.tif.aiAssistant.core.data.model.ApiAssistantModels.CallContactSkillResponse
 import ar.edu.um.tif.aiAssistant.core.data.model.ApiAssistantModels.ServerResponse
 import ar.edu.um.tif.aiAssistant.core.data.model.ApiAssistantModels.UserRequest
+import ar.edu.um.tif.aiAssistant.core.service.CallPermissionRequestCoordinator
 import ar.edu.um.tif.aiAssistant.core.service.ContactService
 import ar.edu.um.tif.aiAssistant.core.service.PatchResponseCoordinator
 import com.justai.aimybox.Aimybox
@@ -25,7 +26,8 @@ import kotlinx.coroutines.withContext
 class CallContactSkill(
     private val context: Context,
     private val contactService: ContactService,
-    private val patchResponseCoordinator: PatchResponseCoordinator
+    private val patchResponseCoordinator: PatchResponseCoordinator,
+    private val callPermissionRequestCoordinator: CallPermissionRequestCoordinator
 ) : CustomSkill<UserRequest, ServerResponse> {
 
     companion object {
@@ -58,13 +60,14 @@ class CallContactSkill(
             val contactName = params.contactName?.takeIf { it.isNotBlank() }
 
             if (!contactPhone.isNullOrBlank()) {
+                if (context.checkSelfPermission(Manifest.permission.CALL_PHONE) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                    Log.w(TAG, "CALL_PHONE permission not granted, requesting permission")
+                    callPermissionRequestCoordinator.requestCallPermission()
+                    defaultHandler(response)
+                    return
+                }
                 Log.d(TAG, "Calling number directly (server sent contact_phone): $contactPhone")
-                val speeches = listOf(com.justai.aimybox.model.TextSpeech(response.serverReply))
-                val speakJob = aimybox.speak(
-                    speeches,
-                    nextAction = com.justai.aimybox.Aimybox.NextAction.NOTHING
-                )
-                speakJob?.join()
+                defaultHandler(response)
                 makeCall(contactPhone, contactPhone)
                 Log.d(TAG, "Successfully initiated call to number $contactPhone")
                 aimybox.standby()
@@ -83,32 +86,22 @@ class CallContactSkill(
             }
 
             if (phoneNumber != null) {
+                if (context.checkSelfPermission(Manifest.permission.CALL_PHONE) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                    Log.w(TAG, "CALL_PHONE permission not granted, requesting permission")
+                    callPermissionRequestCoordinator.requestCallPermission()
+                    defaultHandler(response)
+                    return
+                }
                 Log.d(TAG, "Phase 1: Contact found locally (exact match) - $contactName: $phoneNumber")
-
-                // Trigger speech synthesis following Aimybox patterns
-                val speeches = listOf(com.justai.aimybox.model.TextSpeech(response.serverReply))
-                val speakJob = aimybox.speak(
-                    speeches,
-                    nextAction = com.justai.aimybox.Aimybox.NextAction.NOTHING // Don't auto-transition state
-                )
-
-                // Wait for speech to complete, then make the call
-                speakJob?.join()
-
-                // Make the call after speech synthesis completes
+                defaultHandler(response)
                 makeCall(phoneNumber, contactName)
                 Log.d(TAG, "Successfully initiated call to $contactName")
-
-                // Return to standby state
                 aimybox.standby()
             } else {
                 Log.i(TAG, "Phase 1: Contact '$contactName' not found locally (exact match). Initiating Phase 2...")
-
-                // Phase 2: Use the response.query field which now contains the original user request
+                defaultHandler(response)
                 val originalQuery = response.query ?: "llamar a $contactName"
                 Log.d(TAG, "Using original query from response.query for Phase 2: $originalQuery")
-
-                // Phase 2: Delegate to Aimybox sendRequest with patch request (at most 5 similar contacts)
                 initiateContactPatchingPhase(aimybox, originalQuery, contactName)
             }
         } catch (e: Exception) {
@@ -171,10 +164,8 @@ class CallContactSkill(
      */
     private fun makeCall(phoneNumber: String, contactName: String) {
         try {
-            // Check if we have CALL_PHONE permission before attempting to make the call
             if (context.checkSelfPermission(android.Manifest.permission.CALL_PHONE)
                 != android.content.pm.PackageManager.PERMISSION_GRANTED) {
-                Log.w(TAG, "CALL_PHONE permission not granted, cannot make call to $contactName")
                 return
             }
 

@@ -8,6 +8,7 @@ import ar.edu.um.tif.aiAssistant.core.client.AssistantApiClient
 import ar.edu.um.tif.aiAssistant.core.customException.UnauthorizedAccessException
 import ar.edu.um.tif.aiAssistant.core.data.repository.AuthRepository
 import ar.edu.um.tif.aiAssistant.core.service.ContactService
+import ar.edu.um.tif.aiAssistant.core.service.CallPermissionRequestCoordinator
 import ar.edu.um.tif.aiAssistant.core.service.CalendarPermissionRequestCoordinator
 import ar.edu.um.tif.aiAssistant.core.service.PatchResponseCoordinator
 import ar.edu.um.tif.aiAssistant.core.service.SmsPermissionRequestCoordinator
@@ -235,9 +236,10 @@ object NetworkModule {
     fun provideCallContactSkill(
         @ApplicationContext context: Context,
         contactService: ContactService,
-        patchResponseCoordinator: PatchResponseCoordinator
+        patchResponseCoordinator: PatchResponseCoordinator,
+        callPermissionRequestCoordinator: CallPermissionRequestCoordinator
     ): CallContactSkill {
-        return CallContactSkill(context, contactService, patchResponseCoordinator)
+        return CallContactSkill(context, contactService, patchResponseCoordinator, callPermissionRequestCoordinator)
     }
 
     @Provides

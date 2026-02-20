@@ -10,6 +10,7 @@ import ar.edu.um.tif.aiAssistant.core.data.model.ApiAssistantModels.UserRequest
 import ar.edu.um.tif.aiAssistant.core.data.model.ApiConversationModels.Conversation
 import ar.edu.um.tif.aiAssistant.core.data.repository.AssistantRepository
 import ar.edu.um.tif.aiAssistant.core.client.AssistantApiClient
+import ar.edu.um.tif.aiAssistant.core.service.CallPermissionRequestCoordinator
 import ar.edu.um.tif.aiAssistant.core.service.CalendarPermissionRequestCoordinator
 import ar.edu.um.tif.aiAssistant.core.service.PatchResponseCoordinator
 import ar.edu.um.tif.aiAssistant.core.service.SmsPermissionRequestCoordinator
@@ -52,7 +53,8 @@ class AssistantViewModel @Inject constructor(
     private val aimybox: Aimybox,
     private val patchResponseCoordinator: PatchResponseCoordinator,
     private val smsPermissionRequestCoordinator: SmsPermissionRequestCoordinator,
-    private val calendarPermissionRequestCoordinator: CalendarPermissionRequestCoordinator
+    private val calendarPermissionRequestCoordinator: CalendarPermissionRequestCoordinator,
+    private val callPermissionRequestCoordinator: CallPermissionRequestCoordinator
 ) : ViewModel() {
 
     val requestSmsPermissionLiveData: LiveData<Boolean> = smsPermissionRequestCoordinator.requestSmsPermissionLiveData
@@ -65,6 +67,12 @@ class AssistantViewModel @Inject constructor(
 
     fun consumeCalendarPermissionRequest() {
         calendarPermissionRequestCoordinator.consumeRequest()
+    }
+
+    val requestCallPermissionLiveData: LiveData<Boolean> = callPermissionRequestCoordinator.requestCallPermissionLiveData
+
+    fun consumeCallPermissionRequest() {
+        callPermissionRequestCoordinator.consumeRequest()
     }
 
     private val _uiState = MutableStateFlow(AssistantUiState())
@@ -218,7 +226,7 @@ class AssistantViewModel @Inject constructor(
 
     /**
      * Add a response from the assistant to the chat (for voice interactions).
-     * When [PatchResponseCoordinator.replaceLastWithNext] is true (contact patch flow),
+     * When [PatchResponseCoordinator.replaceLastWithNext] is true (contact or message patch flow),
      * replaces the last assistant message with this response so only the final reply is shown.
      */
     fun addVoiceResponseMessage(text: String) {

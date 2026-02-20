@@ -5,8 +5,9 @@ import javax.inject.Singleton
 
 /**
  * Coordinates patch flow so only the final (patch) response is shown in chat.
- * When the contact skill sends a patch request, it sets [replaceLastWithNext]; the next
- * assistant message added to the chat will replace the previous one instead of appending.
+ * When [CallContactSkill] or [SendMessageSkill] sends a patch request (contact not found),
+ * the server response has [replaceLastWithNext] set; the next assistant message added
+ * to the chat will replace the previous one instead of appending.
  */
 @Singleton
 class PatchResponseCoordinator @Inject constructor() {

@@ -67,7 +67,7 @@ class AssistantApiClient @Inject constructor(
     ) : Response
 
     override fun createRequest(query: String): UserRequest {
-        // Check if this is a patch request from CallContactSkill
+        // Check if this is a patch request from CallContactSkill or SendMessageSkill (same format)
         if (query.startsWith(CallContactSkill.PATCH_REQUEST_PREFIX)) {
             Log.d(TAG, "Detected patch request, parsing contacts data")
 

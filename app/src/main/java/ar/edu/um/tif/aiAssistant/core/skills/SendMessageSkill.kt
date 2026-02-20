@@ -22,6 +22,8 @@ import kotlinx.coroutines.withContext
  * Uses [ContactService] to resolve recipient name to phone when needed.
  * When the server sends [SendMessageParams.recipientPhone] (like CallContactSkill.contact_phone),
  * that number is used directly without contact lookup.
+ * When the contact is not found locally, sends similar contacts to the server for disambiguation
+ * (same patch logic as [CallContactSkill]).
  */
 class SendMessageSkill(
     private val context: Context,
@@ -31,6 +33,8 @@ class SendMessageSkill(
 
     companion object {
         private const val TAG = "SendMessageSkill"
+        /** Same prefix as CallContactSkill so the server receives the same patch format. */
+        private const val PATCH_REQUEST_PREFIX = "CONTACT_PATCH:"
     }
 
     override fun canHandle(response: ServerResponse): Boolean {
@@ -52,22 +56,29 @@ class SendMessageSkill(
         val params = skill.params
 
         // When server sends recipient_phone, use it directly (same pattern as CallContactSkill.contact_phone).
+        val recipient = params.recipient?.takeIf { it.isNotBlank() }
         val phoneNumber = params.recipientPhone?.takeIf { it.isNotBlank() }
-            ?: run {
-                val recipient = params.recipient?.takeIf { it.isNotBlank() }
-                if (recipient.isNullOrBlank()) {
-                    Log.w(TAG, "SendMessageSkill: missing recipient and recipient_phone")
-                    defaultHandler(response)
-                    return
-                }
+            ?: if (!recipient.isNullOrBlank()) {
                 withContext(Dispatchers.IO) {
                     contactService.findContactPhoneNumberExact(recipient)
                 }
+            } else {
+                Log.w(TAG, "SendMessageSkill: missing recipient and recipient_phone")
+                defaultHandler(response)
+                return
             }
 
         if (phoneNumber.isNullOrBlank()) {
-            Log.w(TAG, "SendMessageSkill: no phone number for recipient '${params.recipient ?: params.recipientPhone}'")
-            defaultHandler(response)
+            // Phase 2: Contact not found locally — show reply then send similar contacts to server (same as CallContactSkill)
+            if (!recipient.isNullOrBlank()) {
+                Log.i(TAG, "Recipient '$recipient' not found locally. Initiating patch with similar contacts...")
+                defaultHandler(response)
+                val originalQuery = response.query ?: "enviar mensaje a $recipient"
+                initiateMessagePatchingPhase(aimybox, originalQuery, recipient)
+            } else {
+                Log.w(TAG, "SendMessageSkill: no phone number for recipient_phone")
+                defaultHandler(response)
+            }
             return
         }
 
@@ -86,18 +97,35 @@ class SendMessageSkill(
             defaultHandler(response)
             return
         }
+        defaultHandler(response)
         try {
             sendSmsDirect(phoneNumber, message)
             Log.d(TAG, "SMS sent to $phoneNumber")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to send SMS", e)
-            defaultHandler(response)
-            return
         }
-
-        val speeches = listOf(com.justai.aimybox.model.TextSpeech(response.serverReply))
-        aimybox.speak(speeches, nextAction = com.justai.aimybox.Aimybox.NextAction.NOTHING)
         aimybox.standby()
+    }
+
+    /**
+     * Phase 2: When recipient not found locally, send at most [ContactService.MAX_SIMILAR_CONTACTS]
+     * similar contacts to the server for disambiguation (same format as CallContactSkill).
+     */
+    private suspend fun initiateMessagePatchingPhase(aimybox: Aimybox, originalQuery: String, recipientName: String) {
+        try {
+            val similarContacts = withContext(Dispatchers.IO) {
+                contactService.getSimilarContactNames(recipientName, ContactService.MAX_SIMILAR_CONTACTS)
+            }
+            if (similarContacts.isEmpty()) {
+                Log.w(TAG, "Phase 2: No similar contacts found, sending patch with empty list")
+            }
+            val patchRequestMessage = "$PATCH_REQUEST_PREFIX$originalQuery|${similarContacts.joinToString(",")}"
+            Log.d(TAG, "Phase 2: Sending patch request via Aimybox.sendRequest()")
+            aimybox.sendRequest(patchRequestMessage)
+        } catch (e: Exception) {
+            Log.e(TAG, "Phase 2: Error during message contact patching", e)
+            aimybox.standby()
+        }
     }
 
     /**

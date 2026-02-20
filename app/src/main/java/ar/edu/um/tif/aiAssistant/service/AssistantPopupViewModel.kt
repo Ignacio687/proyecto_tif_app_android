@@ -8,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import ar.edu.um.tif.aiAssistant.core.auth.AuthManager
 import ar.edu.um.tif.aiAssistant.core.data.model.ApiConversationModels.Conversation
 import ar.edu.um.tif.aiAssistant.core.data.repository.AssistantRepository
+import ar.edu.um.tif.aiAssistant.core.service.CallPermissionRequestCoordinator
 import ar.edu.um.tif.aiAssistant.core.service.CalendarPermissionRequestCoordinator
 import ar.edu.um.tif.aiAssistant.core.service.PatchResponseCoordinator
 import ar.edu.um.tif.aiAssistant.core.service.SmsPermissionRequestCoordinator
@@ -50,7 +51,8 @@ class AssistantPopupViewModel @Inject constructor(
     private val assistantRepository: AssistantRepository,
     private val patchResponseCoordinator: PatchResponseCoordinator,
     private val smsPermissionRequestCoordinator: SmsPermissionRequestCoordinator,
-    private val calendarPermissionRequestCoordinator: CalendarPermissionRequestCoordinator
+    private val calendarPermissionRequestCoordinator: CalendarPermissionRequestCoordinator,
+    private val callPermissionRequestCoordinator: CallPermissionRequestCoordinator
 ) : ViewModel() {
 
     val requestSmsPermissionLiveData: LiveData<Boolean> = smsPermissionRequestCoordinator.requestSmsPermissionLiveData
@@ -63,6 +65,12 @@ class AssistantPopupViewModel @Inject constructor(
 
     fun consumeCalendarPermissionRequest() {
         calendarPermissionRequestCoordinator.consumeRequest()
+    }
+
+    val requestCallPermissionLiveData: LiveData<Boolean> = callPermissionRequestCoordinator.requestCallPermissionLiveData
+
+    fun consumeCallPermissionRequest() {
+        callPermissionRequestCoordinator.consumeRequest()
     }
 
     private val _uiState = MutableStateFlow(PopupUiState())
@@ -196,7 +204,7 @@ class AssistantPopupViewModel @Inject constructor(
 
     /**
      * Add a voice response message from Aimybox to the chat.
-     * When [PatchResponseCoordinator.replaceLastWithNext] is true (contact patch flow),
+     * When [PatchResponseCoordinator.replaceLastWithNext] is true (contact or message patch flow),
      * replaces the last assistant message so only the final reply is shown.
      */
     fun addVoiceResponseMessage(content: String) {
