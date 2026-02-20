@@ -16,7 +16,7 @@ import kotlinx.serialization.json.jsonPrimitive
 /**
  * Assistant API models aligned with server OpenAPI schema (openapi.json).
  * Skills are typed per OpenAPI: CallContactSkill, SendMessageSkill, CreateReminderSkill, GoogleSearchSkill.
- * Only CallContactSkill is implemented in the app; other skills are ignored (default reply shown).
+ * CallContactSkill and SendMessageSkill are implemented in the app; others use default reply.
  */
 object ApiAssistantModels {
 
@@ -58,11 +58,13 @@ object ApiAssistantModels {
         val contactPhone: String? = null
     )
 
-    /** OpenAPI: SendMessageParams. */
+    /** OpenAPI: SendMessageParams. Exactly one of recipient or recipient_phone non-empty; message required. */
     @Serializable
     data class SendMessageParams(
-        val recipient: String,
-        val message: String
+        val recipient: String? = null,
+        val message: String,
+        @SerialName("recipient_phone")
+        val recipientPhone: String? = null
     )
 
     /** OpenAPI: CreateReminderParams. */
@@ -96,7 +98,7 @@ object ApiAssistantModels {
         val params: CallContactParams
     ) : Skill()
 
-    /** OpenAPI: SendMessageSkill (not implemented in app). */
+    /** OpenAPI: SendMessageSkill */
     @Serializable
     @SerialName("SendMessageSkill")
     data class SendMessageSkillResponse(

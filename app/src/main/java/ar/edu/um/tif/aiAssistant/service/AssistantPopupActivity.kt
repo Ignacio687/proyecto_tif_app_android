@@ -1,11 +1,14 @@
 package ar.edu.um.tif.aiAssistant.service
 
+import android.Manifest
 import android.content.Intent
 import android.os.Build
+import androidx.activity.result.contract.ActivityResultContracts
 import android.os.Bundle
 import android.util.Log
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.compose.animation.core.EaseInOutCubic
 import androidx.compose.animation.core.animateFloatAsState
@@ -156,6 +159,18 @@ fun AssistantPopupScreen(
 
     val uiState by viewModel.uiState.collectAsState()
     val scrollState = rememberLazyListState()
+
+    // When SendMessageSkill fails due to missing SEND_SMS, show permission dialog
+    val requestSmsPermission by viewModel.requestSmsPermissionLiveData.observeAsState(false)
+    val smsPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { _ -> /* result handled; consume already called after launch */ }
+    LaunchedEffect(requestSmsPermission) {
+        if (requestSmsPermission) {
+            smsPermissionLauncher.launch(Manifest.permission.SEND_SMS)
+            viewModel.consumeSmsPermissionRequest()
+        }
+    }
 
     // Monitor MANUAL scroll state changes - only expand when user manually scrolls
     LaunchedEffect(scrollState.isScrollInProgress) {

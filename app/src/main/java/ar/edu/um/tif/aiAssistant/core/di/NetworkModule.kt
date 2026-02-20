@@ -9,7 +9,9 @@ import ar.edu.um.tif.aiAssistant.core.customException.UnauthorizedAccessExceptio
 import ar.edu.um.tif.aiAssistant.core.data.repository.AuthRepository
 import ar.edu.um.tif.aiAssistant.core.service.ContactService
 import ar.edu.um.tif.aiAssistant.core.service.PatchResponseCoordinator
+import ar.edu.um.tif.aiAssistant.core.service.SmsPermissionRequestCoordinator
 import ar.edu.um.tif.aiAssistant.core.skills.CallContactSkill
+import ar.edu.um.tif.aiAssistant.core.skills.SendMessageSkill
 import com.justai.aimybox.core.CustomSkill
 import dagger.Module
 import dagger.Provides
@@ -238,9 +240,23 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    fun provideCustomSkills(callContactSkill: CallContactSkill): LinkedHashSet<CustomSkill<*, *>> {
+    fun provideSendMessageSkill(
+        @ApplicationContext context: Context,
+        contactService: ContactService,
+        smsPermissionRequestCoordinator: SmsPermissionRequestCoordinator
+    ): SendMessageSkill {
+        return SendMessageSkill(context, contactService, smsPermissionRequestCoordinator)
+    }
+
+    @Provides
+    @Singleton
+    fun provideCustomSkills(
+        callContactSkill: CallContactSkill,
+        sendMessageSkill: SendMessageSkill
+    ): LinkedHashSet<CustomSkill<*, *>> {
         val skills = linkedSetOf<CustomSkill<*, *>>()
         skills.add(callContactSkill)
+        skills.add(sendMessageSkill)
         return skills
     }
 

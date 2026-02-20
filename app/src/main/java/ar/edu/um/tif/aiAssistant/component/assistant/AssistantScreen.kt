@@ -69,7 +69,8 @@ fun AssistantScreen(
         mapOf(
             Manifest.permission.RECORD_AUDIO to "Micrófono",
             Manifest.permission.CALL_PHONE to "Llamadas telefónicas",
-            Manifest.permission.READ_CONTACTS to "Contactos"
+            Manifest.permission.READ_CONTACTS to "Contactos",
+            Manifest.permission.SEND_SMS to "Enviar mensajes SMS"
         )
     }
 
@@ -95,9 +96,10 @@ fun AssistantScreen(
     // Essential permissions - the assistant needs microphone at minimum
     val hasEssentialPermissions = permissionsState[Manifest.permission.RECORD_AUDIO] == true
 
-    // Full functionality permissions - calling features need these additional permissions
+    // Full functionality permissions - calling and messaging need these additional permissions
     val hasFullPermissions = permissionsState[Manifest.permission.CALL_PHONE] == true &&
-            permissionsState[Manifest.permission.READ_CONTACTS] == true
+            permissionsState[Manifest.permission.READ_CONTACTS] == true &&
+            permissionsState[Manifest.permission.SEND_SMS] == true
 
     // Multiple permissions launcher
     val multiplePermissionsLauncher = rememberLauncherForActivityResult(
@@ -114,6 +116,15 @@ fun AssistantScreen(
                     this[permission] = activity?.shouldShowRequestPermissionRationale(permission) != false
                 }
             }
+        }
+    }
+
+    // When SendMessageSkill fails due to missing SEND_SMS, show permission dialog
+    val requestSmsPermission by viewModel.requestSmsPermissionLiveData.observeAsState(false)
+    LaunchedEffect(requestSmsPermission) {
+        if (requestSmsPermission) {
+            multiplePermissionsLauncher.launch(arrayOf(Manifest.permission.SEND_SMS))
+            viewModel.consumeSmsPermissionRequest()
         }
     }
 
@@ -233,7 +244,8 @@ fun AssistantScreen(
                 multiplePermissionsLauncher.launch(
                     arrayOf(
                         Manifest.permission.READ_CONTACTS,
-                        Manifest.permission.CALL_PHONE
+                        Manifest.permission.CALL_PHONE,
+                        Manifest.permission.SEND_SMS
                     )
                 )
                 showAdditionalPermissionsDialog = false
@@ -558,15 +570,17 @@ private fun PermissionRequestContent(
             Triple(
                 "El asistente de voz necesita permisos para funcionar correctamente.\n\n" +
                 "• Micrófono: Para escuchar tus comandos de voz\n" +
-                "• Contactos: Para llamar a tus contactos\n" +
-                "• Teléfono: Para realizar llamadas",
+                "• Contactos: Para llamar y enviar mensajes a tus contactos\n" +
+                "• Teléfono: Para realizar llamadas\n" +
+                "• SMS: Para enviar mensajes de texto",
                 "Otorgar Permisos",
                 {
                     permissionLauncher.launch(
                         arrayOf(
                             Manifest.permission.RECORD_AUDIO,
                             Manifest.permission.READ_CONTACTS,
-                            Manifest.permission.CALL_PHONE
+                            Manifest.permission.CALL_PHONE,
+                            Manifest.permission.SEND_SMS
                         )
                     )
                 }
@@ -631,15 +645,16 @@ private fun AdditionalPermissionsDialog(
         text = {
             Column {
                 Text(
-                    text = "Para poder llamar a tus contactos, necesitamos permisos adicionales:",
+                    text = "Para llamar y enviar mensajes a tus contactos, necesitamos permisos adicionales:",
                     fontSize = MaterialTheme.typography.bodyLarge.fontSize
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text("• Contactos: Para buscar información de tus contactos")
                 Text("• Teléfono: Para realizar llamadas directamente")
+                Text("• SMS: Para enviar mensajes de texto")
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    "Sin estos permisos, no podrás usar comandos como 'Llamar a Juan' o 'Llama a mamá'.",
+                    "Sin estos permisos, no podrás usar comandos como 'Llamar a Juan', 'Envía un mensaje a mamá' o 'Llama a mamá'.",
                     fontSize = MaterialTheme.typography.bodyMedium.fontSize,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

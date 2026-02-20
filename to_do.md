@@ -1,14 +1,24 @@
 # To-Do List
 
-- [x] **Point 0: Make sure the code is respecting the server response schemas defined in http://127.0.0.1:8000/openapi.json**
+- [x] **Point 1: Implement the message skill, the user should be able to send a message to a contact. Use contact service to get the contact information.** SendMessageSkill implemented: uses ContactService when server sends only recipient name; supports optional recipient_phone (like CallContactSkill.contact_phone). SMS sent directly in background via SmsManager. See SERVER_SEND_MESSAGE_INSTRUCTIONS.md for server schema (recipient_phone).
 
-- [x] **Point 1: The call contact skill should recognize when the contact is a number, so it should call the number instead of the contact name.**
-    Call http://127.0.0.1:8000/openapi.json to see the skills response schema.
+- [ ] **Point 2: Implement the Create a reminder skill, at a specific time and date or after a delay. The idea would be to use the android intent to create a reminder on the default calendar app.** look at http://127.0.0.1:8000/openapi.json to see the schema required. Check if the schema is correct to be used for creating reminders using the android intent like the call contact skill. The current schema is very simple, suggest parameters to add based on what android intent allows.
 
-- [x] **Point 2: Send the current user time zone to the server, so the server can use it to format the time in the response.** look at http://127.0.0.1:8000/openapi.json to see the schema required.
+- [ ] **Point 3: The assistant should reproduce a message when wake word is detected, so the senior user can know that the assistant is active and listening, should be predetermined phrases like: si?; te escucho; hola; dime; and so on.** This phrases should be like i said right after wake word is detected, and then sttart lisening, or maybe listen at the same time, to mask that delay before wake word is detected, and the listening starts. I think amybox does have a way to do this documented, fetch https://github.com/just-ai/aimybox-android-sdk/wiki/Core-Android-SDK and https://github.com/just-ai/aimybox-android-sdk/tree/master for context.
 
-- [ ] **Point 3: Implement the message skill, the user should be able to send a message to a contact. Use contact service to get the contact information.** look at http://127.0.0.1:8000/openapi.json to see the schema required. Check if the schema is correct to be used for sending messages using the android intent like the call contact skill. If not, tell me what to change, so i can modify the server side schema.
+- [ ] **Point 4: Play YouTube video skill: user asks to play a video, Gemini finds the URL, app opens it**
 
-- [ ] **Point 4: Implement the Create a reminder skill, at a specific time and date or after a delay. The idea would be to use the android intent to create a reminder on the default calendar app.** look at http://127.0.0.1:8000/openapi.json to see the schema required. Check if the schema is correct to be used for creating reminders using the android intent like the call contact skill. The current schema is very simple, suggest parameters to add based on what android intent allows.
+  **Goal:** The user can ask the assistant to play a YouTube video (e.g. "poné el último video de MrBeast", "quiero ver recetas de milanesas"). The server uses Gemini with Google Search grounding to find the real video URL, returns it as a skill action, and the Android app opens it via an `ACTION_VIEW` intent in the YouTube app.
 
-- [ ] **Point 5: The assistant should reproduce a message when wake word is detected, so the senior user can know that the assistant is active and listening, should be predetermined phrases like: si?; te escucho; hola; dime; and so on.** This phrases should be like i said right after wake word is detected, and then sttart lisening, or maybe listen at the same time, to mask that delay before wake word is detected, and the listening starts. I think amybox does have a way to do this documented, fetch https://github.com/just-ai/aimybox-android-sdk/wiki/Core-Android-SDK and https://github.com/just-ai/aimybox-android-sdk/tree/master for context.
+  **Behavior:**
+  1. **Server side (backend):**
+     - Add a `PlayYouTubeVideoSkill` to the skill schema (name, action: `play_youtube_video`, params: `video_url`, optionally `video_title`).
+     - In the Gemini prompt/instructions, tell the model that when the user asks to play/watch a video, it should use Google Search grounding to find the actual YouTube URL and return it via the skill.
+     - The second call (skill extraction) should output the skill with the resolved URL.
+  2. **Android side (app):**
+     - Implement `PlayYouTubeVideoSkill` that receives `video_url` from the server response.
+     - Fire an `ACTION_VIEW` intent with the URL — Android will open it in the YouTube app if installed, or in the browser otherwise.
+  3. **Considerations:**
+     - Gemini must have **Google Search tool enabled** for this to work reliably (otherwise URLs may be hallucinated).
+     - Fallback: if no URL is found, the server should reply saying it couldn't find the video instead of returning a skill with a bad URL.
+     - The skill params schema should include `video_url` (required) and `video_title` (optional, for the assistant to say "I'm playing X").

@@ -9,7 +9,7 @@ import javax.inject.Singleton
 
 /**
  * Service responsible for contact retrieval and matching from the device.
- * Used by CallContactSkill (and future MessageSkill) for contact lookup.
+ * Used by CallContactSkill and SendMessageSkill for contact lookup.
  */
 @Singleton
 class ContactService @Inject constructor(

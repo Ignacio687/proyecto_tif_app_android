@@ -11,6 +11,7 @@ import ar.edu.um.tif.aiAssistant.core.data.model.ApiConversationModels.Conversat
 import ar.edu.um.tif.aiAssistant.core.data.repository.AssistantRepository
 import ar.edu.um.tif.aiAssistant.core.client.AssistantApiClient
 import ar.edu.um.tif.aiAssistant.core.service.PatchResponseCoordinator
+import ar.edu.um.tif.aiAssistant.core.service.SmsPermissionRequestCoordinator
 import com.justai.aimybox.Aimybox
 import com.justai.aimybox.components.AimyboxAssistantViewModel
 import com.justai.aimybox.components.widget.AssistantWidget
@@ -48,8 +49,15 @@ class AssistantViewModel @Inject constructor(
     private val assistantApiClient: AssistantApiClient,
     private val authManager: AuthManager,
     private val aimybox: Aimybox,
-    private val patchResponseCoordinator: PatchResponseCoordinator
+    private val patchResponseCoordinator: PatchResponseCoordinator,
+    private val smsPermissionRequestCoordinator: SmsPermissionRequestCoordinator
 ) : ViewModel() {
+
+    val requestSmsPermissionLiveData: LiveData<Boolean> = smsPermissionRequestCoordinator.requestSmsPermissionLiveData
+
+    fun consumeSmsPermissionRequest() {
+        smsPermissionRequestCoordinator.consumeRequest()
+    }
 
     private val _uiState = MutableStateFlow(AssistantUiState())
     val uiState: StateFlow<AssistantUiState> = _uiState.asStateFlow()
