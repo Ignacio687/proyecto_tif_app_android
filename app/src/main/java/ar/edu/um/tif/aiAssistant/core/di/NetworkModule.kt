@@ -8,9 +8,11 @@ import ar.edu.um.tif.aiAssistant.core.client.AssistantApiClient
 import ar.edu.um.tif.aiAssistant.core.customException.UnauthorizedAccessException
 import ar.edu.um.tif.aiAssistant.core.data.repository.AuthRepository
 import ar.edu.um.tif.aiAssistant.core.service.ContactService
+import ar.edu.um.tif.aiAssistant.core.service.CalendarPermissionRequestCoordinator
 import ar.edu.um.tif.aiAssistant.core.service.PatchResponseCoordinator
 import ar.edu.um.tif.aiAssistant.core.service.SmsPermissionRequestCoordinator
 import ar.edu.um.tif.aiAssistant.core.skills.CallContactSkill
+import ar.edu.um.tif.aiAssistant.core.skills.CreateReminderSkill
 import ar.edu.um.tif.aiAssistant.core.skills.SendMessageSkill
 import com.justai.aimybox.core.CustomSkill
 import dagger.Module
@@ -250,13 +252,24 @@ object NetworkModule {
 
     @Provides
     @Singleton
+    fun provideCreateReminderSkill(
+        @ApplicationContext context: Context,
+        calendarPermissionRequestCoordinator: CalendarPermissionRequestCoordinator
+    ): CreateReminderSkill {
+        return CreateReminderSkill(context, calendarPermissionRequestCoordinator)
+    }
+
+    @Provides
+    @Singleton
     fun provideCustomSkills(
         callContactSkill: CallContactSkill,
-        sendMessageSkill: SendMessageSkill
+        sendMessageSkill: SendMessageSkill,
+        createReminderSkill: CreateReminderSkill
     ): LinkedHashSet<CustomSkill<*, *>> {
         val skills = linkedSetOf<CustomSkill<*, *>>()
         skills.add(callContactSkill)
         skills.add(sendMessageSkill)
+        skills.add(createReminderSkill)
         return skills
     }
 

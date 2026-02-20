@@ -8,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import ar.edu.um.tif.aiAssistant.core.auth.AuthManager
 import ar.edu.um.tif.aiAssistant.core.data.model.ApiConversationModels.Conversation
 import ar.edu.um.tif.aiAssistant.core.data.repository.AssistantRepository
+import ar.edu.um.tif.aiAssistant.core.service.CalendarPermissionRequestCoordinator
 import ar.edu.um.tif.aiAssistant.core.service.PatchResponseCoordinator
 import ar.edu.um.tif.aiAssistant.core.service.SmsPermissionRequestCoordinator
 import com.justai.aimybox.Aimybox
@@ -48,13 +49,20 @@ class AssistantPopupViewModel @Inject constructor(
     private val aimybox: Aimybox,
     private val assistantRepository: AssistantRepository,
     private val patchResponseCoordinator: PatchResponseCoordinator,
-    private val smsPermissionRequestCoordinator: SmsPermissionRequestCoordinator
+    private val smsPermissionRequestCoordinator: SmsPermissionRequestCoordinator,
+    private val calendarPermissionRequestCoordinator: CalendarPermissionRequestCoordinator
 ) : ViewModel() {
 
     val requestSmsPermissionLiveData: LiveData<Boolean> = smsPermissionRequestCoordinator.requestSmsPermissionLiveData
 
     fun consumeSmsPermissionRequest() {
         smsPermissionRequestCoordinator.consumeRequest()
+    }
+
+    val requestCalendarPermissionLiveData: LiveData<Boolean> = calendarPermissionRequestCoordinator.requestCalendarPermissionLiveData
+
+    fun consumeCalendarPermissionRequest() {
+        calendarPermissionRequestCoordinator.consumeRequest()
     }
 
     private val _uiState = MutableStateFlow(PopupUiState())

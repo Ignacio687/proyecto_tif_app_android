@@ -16,7 +16,7 @@ import kotlinx.serialization.json.jsonPrimitive
 /**
  * Assistant API models aligned with server OpenAPI schema (openapi.json).
  * Skills are typed per OpenAPI: CallContactSkill, SendMessageSkill, CreateReminderSkill, GoogleSearchSkill.
- * CallContactSkill and SendMessageSkill are implemented in the app; others use default reply.
+ * CallContactSkill, SendMessageSkill and CreateReminderSkill are implemented in the app; others use default reply.
  */
 object ApiAssistantModels {
 
@@ -67,11 +67,21 @@ object ApiAssistantModels {
         val recipientPhone: String? = null
     )
 
-    /** OpenAPI: CreateReminderParams. */
+    /**
+     * OpenAPI: CreateReminderParams.
+     * Exactly one of [datetime] or [delayMinutes] should be set (for "at 3pm" vs "in 30 minutes").
+     * [description] maps to calendar event description (optional).
+     */
     @Serializable
     data class CreateReminderParams(
         val title: String,
-        val datetime: String
+        /** Target date/time in ISO 8601 or "YYYY-MM-DD HH:MM" format. Use when reminder is at a specific time. */
+        val datetime: String? = null,
+        /** Reminder in N minutes from now. Use for "recordá en 30 minutos". */
+        @SerialName("delay_minutes")
+        val delayMinutes: Int? = null,
+        /** Optional event/reminder description (calendar event body). */
+        val description: String? = null
     )
 
     /** OpenAPI: GoogleSearchParams. Empty object (executed server-side). */
@@ -107,7 +117,7 @@ object ApiAssistantModels {
         val params: SendMessageParams
     ) : Skill()
 
-    /** OpenAPI: CreateReminderSkill (not implemented in app). */
+    /** OpenAPI: CreateReminderSkill */
     @Serializable
     @SerialName("CreateReminderSkill")
     data class CreateReminderSkillResponse(

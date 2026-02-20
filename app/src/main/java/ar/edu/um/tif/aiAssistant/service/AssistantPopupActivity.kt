@@ -172,6 +172,20 @@ fun AssistantPopupScreen(
         }
     }
 
+    // When CreateReminderSkill fails due to missing calendar permission, show permission dialog
+    val requestCalendarPermission by viewModel.requestCalendarPermissionLiveData.observeAsState(false)
+    val calendarPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { _ -> /* result handled; consume already called after launch */ }
+    LaunchedEffect(requestCalendarPermission) {
+        if (requestCalendarPermission) {
+            calendarPermissionLauncher.launch(
+                arrayOf(Manifest.permission.READ_CALENDAR, Manifest.permission.WRITE_CALENDAR)
+            )
+            viewModel.consumeCalendarPermissionRequest()
+        }
+    }
+
     // Monitor MANUAL scroll state changes - only expand when user manually scrolls
     LaunchedEffect(scrollState.isScrollInProgress) {
         // Only trigger expansion if:

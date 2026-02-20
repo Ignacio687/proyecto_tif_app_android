@@ -128,6 +128,17 @@ fun AssistantScreen(
         }
     }
 
+    // When CreateReminderSkill fails due to missing calendar permission, show permission dialog
+    val requestCalendarPermission by viewModel.requestCalendarPermissionLiveData.observeAsState(false)
+    LaunchedEffect(requestCalendarPermission) {
+        if (requestCalendarPermission) {
+            multiplePermissionsLauncher.launch(
+                arrayOf(Manifest.permission.READ_CALENDAR, Manifest.permission.WRITE_CALENDAR)
+            )
+            viewModel.consumeCalendarPermissionRequest()
+        }
+    }
+
     // Request essential permissions on initial composition if not already granted
     LaunchedEffect(Unit) {
         if (!hasEssentialPermissions) {
