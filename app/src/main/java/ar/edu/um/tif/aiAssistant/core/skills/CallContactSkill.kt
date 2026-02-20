@@ -6,6 +6,7 @@ import android.content.Intent
 import android.net.Uri
 import android.util.Log
 import androidx.annotation.RequiresPermission
+import ar.edu.um.tif.aiAssistant.core.data.model.ApiAssistantModels.CallContactSkillResponse
 import ar.edu.um.tif.aiAssistant.core.data.model.ApiAssistantModels.ServerResponse
 import ar.edu.um.tif.aiAssistant.core.data.model.ApiAssistantModels.UserRequest
 import ar.edu.um.tif.aiAssistant.core.service.ContactService
@@ -15,8 +16,6 @@ import com.justai.aimybox.core.CustomSkill
 import com.justai.aimybox.model.Response
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
 
 /**
  * CustomSkill that handles call invocation and response for contact calling.
@@ -31,23 +30,15 @@ class CallContactSkill(
 
     companion object {
         private const val TAG = "CallContactSkill"
-        private const val ACTION_CALL_CONTACT = "call_contact"
-        private const val PARAM_CONTACT_NAME = "contact_name"
-
-        // Special prefix to indicate patch request with contacts
         const val PATCH_REQUEST_PREFIX = "CONTACT_PATCH:"
     }
 
-    @Serializable
-    private data class ContactParams(
-        val contact_name: String
-    )
-
     override fun canHandle(response: ServerResponse): Boolean {
-        val hasCallContactSkill = response.skills?.any { it.action == ACTION_CALL_CONTACT } == true
-        val actionMatches = response.action == ACTION_CALL_CONTACT
-        return hasCallContactSkill || actionMatches
+        return response.skills?.any { it is CallContactSkillResponse } == true
     }
+
+    private fun ServerResponse.callContactSkill(): CallContactSkillResponse? =
+        skills?.filterIsInstance<CallContactSkillResponse>()?.firstOrNull()
 
     @RequiresPermission(Manifest.permission.RECORD_AUDIO)
     override suspend fun onResponse(
@@ -55,11 +46,33 @@ class CallContactSkill(
         aimybox: Aimybox,
         defaultHandler: suspend (Response) -> Unit
     ) {
+        val skill = response.callContactSkill() ?: run {
+            defaultHandler(response)
+            return
+        }
+        val params = skill.params
+
         try {
-            // Extract contact name from skill parameters
-            val contactName = extractContactName(response)
+            // When server sends contact_phone, call that number directly. Otherwise use contact_name (always a name).
+            val contactPhone = params.contactPhone?.takeIf { it.isNotBlank() }
+            val contactName = params.contactName?.takeIf { it.isNotBlank() }
+
+            if (!contactPhone.isNullOrBlank()) {
+                Log.d(TAG, "Calling number directly (server sent contact_phone): $contactPhone")
+                val speeches = listOf(com.justai.aimybox.model.TextSpeech(response.serverReply))
+                val speakJob = aimybox.speak(
+                    speeches,
+                    nextAction = com.justai.aimybox.Aimybox.NextAction.NOTHING
+                )
+                speakJob?.join()
+                makeCall(contactPhone, contactPhone)
+                Log.d(TAG, "Successfully initiated call to number $contactPhone")
+                aimybox.standby()
+                return
+            }
+
             if (contactName.isNullOrBlank()) {
-                Log.w(TAG, "No contact name found in response")
+                Log.w(TAG, "No contact name or phone number found in response")
                 defaultHandler(response)
                 return
             }
@@ -133,9 +146,6 @@ class CallContactSkill(
 
             Log.d(TAG, "Phase 2: Sending patch request via Aimybox.sendRequest()")
 
-            // Signal UI to replace the first response with the patch response when it arrives
-            patchResponseCoordinator.replaceLastWithNext = true
-
             // Use Aimybox's sendRequest - this will go through AssistantApiClient
             // which will detect the patch format and create proper UserRequest
             aimybox.sendRequest(patchRequestMessage)
@@ -154,27 +164,6 @@ class CallContactSkill(
         // contactsList = similar contacts; name kept for API compatibility
         val contactsString = contactsList.joinToString(",")
         return "$PATCH_REQUEST_PREFIX$originalQuery|$contactsString"
-    }
-
-    /**
-     * Extract contact name from the server response skill parameters
-     */
-    private fun extractContactName(response: ServerResponse): String? {
-        val skill = response.skills?.find { it.action == ACTION_CALL_CONTACT }
-        return skill?.params?.get(PARAM_CONTACT_NAME)
-            ?: skill?.params?.get("data")?.let { parseContactNameFromJson(it) }
-    }
-
-    /**
-     * Parse contact name from JSON data parameter (fallback for existing format)
-     */
-    private fun parseContactNameFromJson(jsonData: String): String? {
-        return try {
-            Json.decodeFromString<ContactParams>(jsonData).contact_name
-        } catch (e: Exception) {
-            Log.w(TAG, "Failed to parse contact name from JSON: $jsonData", e)
-            null
-        }
     }
 
     /**

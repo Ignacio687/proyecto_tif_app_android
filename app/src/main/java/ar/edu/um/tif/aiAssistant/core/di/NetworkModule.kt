@@ -105,9 +105,10 @@ object NetworkModule {
             }
 
             install(HttpTimeout) {
-                requestTimeoutMillis = 30000
-                connectTimeoutMillis = 30000
-                socketTimeoutMillis = 30000
+                // Match AssistantApiClient.requestTimeoutMs so HTTP doesn't cancel before Aimybox timeout
+                requestTimeoutMillis = 60_000
+                connectTimeoutMillis = 30_000
+                socketTimeoutMillis = 60_000
             }
 
             // Default headers and base URL
@@ -248,8 +249,9 @@ object NetworkModule {
     fun provideAssistantApiClient(
         @AuthenticatedHttpClient client: HttpClient,
         authRepository: AuthRepository,
+        patchResponseCoordinator: PatchResponseCoordinator,
         customSkills: LinkedHashSet<CustomSkill<*, *>>
     ): AssistantApiClient {
-        return AssistantApiClient(client, authRepository, customSkills)
+        return AssistantApiClient(client, authRepository, patchResponseCoordinator, customSkills)
     }
 }

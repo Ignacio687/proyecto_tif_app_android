@@ -10,12 +10,15 @@ class AssistantRepository @Inject constructor(
     private val assistantClient: AssistantApiClient,
     private val authRepository: AuthRepository
 ) {
-    // Get conversation history
-    suspend fun getConversationHistory(page: Int = 1, pageSize: Int = 10): Result<ConversationHistoryResponse> {
+    /** Get conversation history; optional [timezone] for server to format timestamps (default: device timezone). */
+    suspend fun getConversationHistory(
+        page: Int = 1,
+        pageSize: Int = 10,
+        timezone: String? = java.util.TimeZone.getDefault().id
+    ): Result<ConversationHistoryResponse> {
         val token = authRepository.getAccessToken() ?: return Result.failure(
             IllegalStateException("Authentication token not found")
         )
-
-        return assistantClient.getConversationHistory(token, page, pageSize)
+        return assistantClient.getConversationHistory(token, page, pageSize, timezone)
     }
 }

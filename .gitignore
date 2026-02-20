@@ -21,3 +21,4 @@ keystore.jks
 
 # Cursor
 .cursorignore
+.vscode/

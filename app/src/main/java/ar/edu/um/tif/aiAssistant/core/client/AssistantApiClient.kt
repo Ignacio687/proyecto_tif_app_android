@@ -4,6 +4,7 @@ import ar.edu.um.tif.aiAssistant.core.data.model.ApiAssistantModels.ServerRespon
 import ar.edu.um.tif.aiAssistant.core.data.model.ApiAssistantModels.UserRequest
 import ar.edu.um.tif.aiAssistant.core.data.model.ApiConversationModels.ConversationHistoryResponse
 import ar.edu.um.tif.aiAssistant.core.data.repository.AuthRepository
+import ar.edu.um.tif.aiAssistant.core.service.PatchResponseCoordinator
 import ar.edu.um.tif.aiAssistant.core.skills.CallContactSkill
 import com.justai.aimybox.Aimybox
 import com.justai.aimybox.api.DialogApi
@@ -22,6 +23,7 @@ import io.ktor.client.request.url
 import io.ktor.http.HttpHeaders
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
+import java.util.TimeZone
 import javax.inject.Inject
 import javax.inject.Singleton
 import android.util.Log
@@ -35,13 +37,15 @@ import android.util.Log
 class AssistantApiClient @Inject constructor(
     private val client: HttpClient,
     private val authRepository: AuthRepository,
+    private val patchResponseCoordinator: PatchResponseCoordinator,
     customSkills: LinkedHashSet<CustomSkill<*, *>>
 ) : DialogApi<UserRequest, ServerResponse>() {
 
-    // Implementation of the abstract property from DialogApi with the correct type parameters
-    // We use the skills passed in the constructor, with proper casting
     @Suppress("UNCHECKED_CAST")
     override val customSkills = customSkills as LinkedHashSet<CustomSkill<UserRequest, ServerResponse>>
+
+    /** Request timeout for assistant API (Aimybox default is 10s; server/LLM may need longer). */
+    override val requestTimeoutMs: Long = 60_000L
 
     // API endpoints
     private val apiPath = "/api/v1"
@@ -89,15 +93,16 @@ class AssistantApiClient @Inject constructor(
                     systemMessage = ar.edu.um.tif.aiAssistant.core.data.model.ApiAssistantModels.SystemMessage(
                         patchLast = true,
                         contactsList = contactsList
-                    )
+                    ),
+                    timezone = TimeZone.getDefault().id
                 )
             } else {
                 Log.w(TAG, "Invalid patch request format, falling back to normal request")
             }
         }
 
-        // Normal request without patch data
-        return UserRequest(userReq = query)
+        // Normal request without patch data (include timezone for server time formatting)
+        return UserRequest(userReq = query, timezone = TimeZone.getDefault().id)
     }
 
     /**
@@ -133,7 +138,12 @@ class AssistantApiClient @Inject constructor(
             )
         }
 
-        // Return response with the original user query populated
+        // When this response is from a patch request (contact disambiguation), the next message
+        // added to chat should replace the previous one so only the final reply is shown/spoken.
+        if (request.systemMessage?.patchLast == true) {
+            patchResponseCoordinator.replaceLastWithNext = true
+        }
+
         return response.copy(
             originalQuery = request.userReq
         )
@@ -155,11 +165,13 @@ class AssistantApiClient @Inject constructor(
 
     /**
      * Get the conversation history from the assistant API.
+     * @param timezone Optional IANA timezone (e.g. America/Argentina/Buenos_Aires); timestamps are returned in this timezone.
      */
     suspend fun getConversationHistory(
         token: String,
         page: Int = 1,
-        pageSize: Int = 10
+        pageSize: Int = 10,
+        timezone: String? = TimeZone.getDefault().id
     ): Result<ConversationHistoryResponse> {
         return runCatching {
             val response = client.get {
@@ -169,6 +181,7 @@ class AssistantApiClient @Inject constructor(
                 }
                 parameter("page", page)
                 parameter("page_size", pageSize)
+                timezone?.let { parameter("timezone", it) }
             }
             response.body<ConversationHistoryResponse>()
         }

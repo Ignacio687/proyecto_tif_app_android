@@ -6,6 +6,7 @@ import androidx.lifecycle.LiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import ar.edu.um.tif.aiAssistant.core.auth.AuthManager
+import ar.edu.um.tif.aiAssistant.core.data.model.ApiConversationModels.Conversation
 import ar.edu.um.tif.aiAssistant.core.data.repository.AssistantRepository
 import ar.edu.um.tif.aiAssistant.core.service.PatchResponseCoordinator
 import com.justai.aimybox.Aimybox
@@ -32,7 +33,12 @@ data class PopupUiState(
     val isLoading: Boolean = false,
     val errorMessage: String? = null,
     val authError: Boolean = false,
-    val userHasInteracted: Boolean = false
+    val userHasInteracted: Boolean = false,
+    val hasMorePages: Boolean = true,
+    val isLoadingMore: Boolean = false,
+    val prependedCount: Int = 0,
+    /** First visible item index when load-more was triggered; used to restore scroll after prepend. */
+    val scrollRestoreFirstVisibleIndex: Int? = null
 )
 
 @HiltViewModel
@@ -45,6 +51,9 @@ class AssistantPopupViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow(PopupUiState())
     val uiState: StateFlow<PopupUiState> = _uiState.asStateFlow()
+
+    private var nextPageToLoad = 1
+    private var historyLoadId = 0
 
     // AimyBox related properties - using injected instance
     private val _aimyboxDelegate: AimyboxAssistantViewModel by lazy {
@@ -261,104 +270,121 @@ class AssistantPopupViewModel @Inject constructor(
         _uiState.update { it.copy(errorMessage = null) }
     }
 
-    /**
-     * Load conversation history from repository (adapted from main AssistantViewModel)
-     */
     fun loadConversationHistory() {
+        nextPageToLoad = 1
+        loadConversationHistoryPage(replace = true)
+    }
+
+    /**
+     * Load the next page (older messages) and prepend. Call when user scrolls to the top.
+     * Pass [firstVisibleItemIndex] so scroll can be restored after prepend.
+     */
+    fun loadMoreConversationHistory(firstVisibleItemIndex: Int) {
+        if (_uiState.value.isLoadingMore || !_uiState.value.hasMorePages) return
+        _uiState.update {
+            it.copy(
+                isLoadingMore = true,
+                scrollRestoreFirstVisibleIndex = firstVisibleItemIndex
+            )
+        }
+        loadConversationHistoryPage(replace = false)
+    }
+
+    fun clearPrependedCount() {
+        _uiState.update { it.copy(prependedCount = 0, scrollRestoreFirstVisibleIndex = null) }
+    }
+
+    private fun loadConversationHistoryPage(replace: Boolean) {
         viewModelScope.launch {
+            val page = nextPageToLoad
+            val loadId = ++historyLoadId
+            if (page == 1) {
+                _uiState.update { it.copy(isLoading = true) }
+            }
             try {
-                _uiState.update { currentState -> currentState.copy(isLoading = true) }
-
-                val result = assistantRepository.getConversationHistory()
-
+                val result = assistantRepository.getConversationHistory(page = page)
                 result.fold(
                     onSuccess = { historyResponse ->
-                        // Process conversation history data - server already sends in order (0 = most recent)
-                        val messages = historyResponse.conversations.flatMap { conversation ->
-                            try {
-                                // Parse the timestamp string to get date and time
-                                val timestamp = try {
-                                    val regex = """(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2})""".toRegex()
-                                    val matchResult = regex.find(conversation.timestamp)
-
-                                    if (matchResult != null) {
-                                        // Extract date components to create a timestamp
-                                        val (date, hours, minutes) = matchResult.destructured
-                                        val year = date.substring(0, 4).toInt()
-                                        val month = date.substring(5, 7).toInt() - 1 // Month is 0-based in Calendar
-                                        val day = date.substring(8, 10).toInt()
-                                        val hour = hours.toInt()
-                                        val minute = minutes.toInt()
-
-                                        // Create a calendar with the extracted date and time
-                                        val calendar = java.util.Calendar.getInstance()
-                                        calendar.set(year, month, day, hour, minute, 0)
-                                        calendar.set(java.util.Calendar.MILLISECOND, 0)
-                                        calendar.timeInMillis
-                                    } else {
-                                        System.currentTimeMillis()
-                                    }
-                                } catch (e: Exception) {
-                                    android.util.Log.e("AssistantPopupViewModel", "Failed to parse timestamp: ${conversation.timestamp}", e)
-                                    System.currentTimeMillis()
-                                }
-
-                                // For each conversation create a pair of messages in the right order
-                                // Convert ChatMessage to PopupChatMessage
-                                val userMessage = PopupChatMessage(
-                                    id = "${timestamp}_user",
-                                    content = conversation.userInput,
-                                    isFromUser = true,
-                                    timestamp = timestamp
-                                )
-                                val assistantMessage = PopupChatMessage(
-                                    id = "${timestamp}_assistant",
-                                    content = conversation.serverReply,
-                                    isFromUser = false,
-                                    timestamp = timestamp
-                                )
-
-                                // Return the pair with assistant message first, then user message (same order as main)
-                                listOf(assistantMessage, userMessage)
-                            } catch (e: Exception) {
-                                android.util.Log.e("AssistantPopupViewModel", "Error processing conversation", e)
-                                emptyList()
-                            }
+                        if (loadId != historyLoadId) return@fold
+                        val messages = conversationsToPopupMessages(historyResponse.conversations)
+                        val ordered = messages.reversed()
+                        nextPageToLoad = page + 1
+                        val hasMore = page < historyResponse.totalPages
+                        if (replace) {
+                            _uiState.update { currentState -> currentState.copy(
+                                messages = ordered,
+                                isLoading = false,
+                                errorMessage = null,
+                                hasMorePages = hasMore,
+                                prependedCount = 0
+                            )}
+                        } else {
+                            _uiState.update { currentState -> currentState.copy(
+                                messages = ordered + currentState.messages,
+                                isLoadingMore = false,
+                                hasMorePages = hasMore,
+                                prependedCount = ordered.size
+                            )}
                         }
-
-                        _uiState.update { currentState -> currentState.copy(
-                            messages = messages.reversed(),  // Reverse the order so oldest appear first, newest last
-                            isLoading = false,
-                            errorMessage = null
-                        )}
-
-                        // Log messages only when they're loaded from server
-                        android.util.Log.d("PopupConversationHistory", "=== POPUP MESSAGES LOADED FROM SERVER ===")
-                        messages.reversed().forEachIndexed { index, message ->
-                            android.util.Log.d("PopupConversationHistory", "Message $index: isFromUser=${message.isFromUser}, content=${message.content}, timestamp=${message.timestamp}")
-                        }
-                        android.util.Log.d("PopupConversationHistory", "=== END POPUP SERVER MESSAGES (${messages.size} total) ===")
                     },
                     onFailure = { error ->
-                        // Log the detailed error for debugging
                         android.util.Log.e("AssistantPopupViewModel", "History loading error", error)
-
-                        // Set a user-friendly error message
                         _uiState.update { currentState -> currentState.copy(
-                            isLoading = false,
-                            errorMessage = "Unable to load conversation history. Please try again later."
+                            isLoading = if (page == 1) false else currentState.isLoading,
+                            isLoadingMore = if (page != 1) false else currentState.isLoadingMore,
+                            errorMessage = if (page == 1) "Unable to load conversation history. Please try again later." else currentState.errorMessage
                         )}
                     }
                 )
             } catch (e: Exception) {
-                // Log the detailed exception
                 android.util.Log.e("AssistantPopupViewModel", "Exception loading history", e)
-
                 _uiState.update { currentState -> currentState.copy(
                     isLoading = false,
-                    errorMessage = "Unable to load conversation history. Please try again later."
+                    isLoadingMore = false,
+                    errorMessage = if (page == 1) "Unable to load conversation history. Please try again later." else currentState.errorMessage
                 )}
             }
         }
     }
+
+    private fun conversationsToPopupMessages(conversations: List<Conversation>): List<PopupChatMessage> =
+        conversations.flatMap { conversation ->
+            try {
+                val timestamp = try {
+                    val regex = """(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2})""".toRegex()
+                    val matchResult = regex.find(conversation.timestamp)
+                    if (matchResult != null) {
+                        val (date, hours, minutes) = matchResult.destructured
+                        val year = date.substring(0, 4).toInt()
+                        val month = date.substring(5, 7).toInt() - 1
+                        val day = date.substring(8, 10).toInt()
+                        val hour = hours.toInt()
+                        val minute = minutes.toInt()
+                        val calendar = java.util.Calendar.getInstance()
+                        calendar.set(year, month, day, hour, minute, 0)
+                        calendar.set(java.util.Calendar.MILLISECOND, 0)
+                        calendar.timeInMillis
+                    } else System.currentTimeMillis()
+                } catch (e: Exception) {
+                    android.util.Log.e("AssistantPopupViewModel", "Failed to parse timestamp: ${conversation.timestamp}", e)
+                    System.currentTimeMillis()
+                }
+                val userMessage = PopupChatMessage(
+                    id = java.util.UUID.randomUUID().toString(),
+                    content = conversation.userInput,
+                    isFromUser = true,
+                    timestamp = timestamp
+                )
+                val assistantMessage = PopupChatMessage(
+                    id = java.util.UUID.randomUUID().toString(),
+                    content = conversation.serverReply,
+                    isFromUser = false,
+                    timestamp = timestamp
+                )
+                listOf(assistantMessage, userMessage)
+            } catch (e: Exception) {
+                android.util.Log.e("AssistantPopupViewModel", "Error processing conversation", e)
+                emptyList()
+            }
+        }
 }

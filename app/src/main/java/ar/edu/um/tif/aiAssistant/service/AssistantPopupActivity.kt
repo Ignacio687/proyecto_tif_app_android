@@ -192,25 +192,31 @@ fun AssistantPopupScreen(
 
     val isListening = aimyboxState != null && aimyboxState.toString().contains("LISTENING")
 
-    // Convert AimyBox widgets to UI messages (similar to AssistantScreen)
+    // Only process NEW widgets so we don't re-add previous responses and patch replace works.
+    // Caveats: if the composable is recreated (e.g. config change), lastProcessedWidgetCount resets
+    // and we may re-process; if the widget list shrinks we reset so we don't skip after a clear.
+    var lastProcessedWidgetCount by remember { mutableStateOf(0) }
     LaunchedEffect(aimyboxWidgets) {
-        aimyboxWidgets.forEach { widget ->
+        val currentSize = aimyboxWidgets.size
+        if (currentSize < lastProcessedWidgetCount) {
+            lastProcessedWidgetCount = currentSize
+        }
+        for (i in lastProcessedWidgetCount until currentSize) {
+            val widget = aimyboxWidgets[i]
             when (widget::class.simpleName) {
                 "ResponseWidget" -> {
                     val text = widget.javaClass.getMethod("getText").invoke(widget) as String
-                    // Only add the response to chat if it should not be filtered
                     if (!viewModel.shouldFilterResponse(text)) {
                         viewModel.addVoiceResponseMessage(text)
                     }
                 }
                 "RequestWidget" -> {
                     val text = widget.javaClass.getMethod("getText").invoke(widget) as String
-                    // Add the user request to chat messages directly
                     viewModel.addVoiceRequestMessage(text)
                 }
-                // Add other widget types as needed
             }
         }
+        lastProcessedWidgetCount = currentSize
     }
 
     // Function to start/restart the 15-second auto-dismiss timer
@@ -320,6 +326,11 @@ fun AssistantPopupScreen(
                             isListening = isListening,
                             isLoading = uiState.isLoading,
                             scrollState = scrollState,
+                            hasMorePages = uiState.hasMorePages,
+                            isLoadingMore = uiState.isLoadingMore,
+                            prependedCount = uiState.prependedCount,
+                            scrollRestoreFirstVisibleIndex = uiState.scrollRestoreFirstVisibleIndex,
+                            viewModel = viewModel,
                             onSendMessage = viewModel::sendMessage,
                             onMicClick = {
                                 if (hasRecordAudioPermission) {
@@ -369,6 +380,11 @@ private fun AuthenticatedPopupContent(
     isListening: Boolean,
     isLoading: Boolean,
     scrollState: LazyListState,
+    hasMorePages: Boolean,
+    isLoadingMore: Boolean,
+    prependedCount: Int,
+    scrollRestoreFirstVisibleIndex: Int?,
+    viewModel: AssistantPopupViewModel,
     onSendMessage: (String) -> Unit,
     onMicClick: () -> Unit,
     onDismiss: () -> Unit
@@ -376,14 +392,16 @@ private fun AuthenticatedPopupContent(
     Column(
         modifier = Modifier.fillMaxSize()
     ) {
-        // Header
         PopupHeader(onDismiss = onDismiss)
-
-        // Messages List (compact version)
         PopupMessageList(
             messages = messages,
             isLoading = isLoading,
             scrollState = scrollState,
+            hasMorePages = hasMorePages,
+            isLoadingMore = isLoadingMore,
+            prependedCount = prependedCount,
+            scrollRestoreFirstVisibleIndex = scrollRestoreFirstVisibleIndex,
+            viewModel = viewModel,
             modifier = Modifier.weight(1f)
         )
 
@@ -426,8 +444,30 @@ private fun PopupMessageList(
     messages: List<PopupChatMessage>,
     isLoading: Boolean,
     scrollState: LazyListState,
+    hasMorePages: Boolean,
+    isLoadingMore: Boolean,
+    prependedCount: Int,
+    scrollRestoreFirstVisibleIndex: Int?,
+    viewModel: AssistantPopupViewModel,
     modifier: Modifier = Modifier
 ) {
+    LaunchedEffect(scrollState.firstVisibleItemIndex, scrollState.firstVisibleItemScrollOffset) {
+        if (scrollState.firstVisibleItemIndex <= 1 && hasMorePages && !isLoadingMore && !isLoading && messages.isNotEmpty()) {
+            viewModel.loadMoreConversationHistory(scrollState.firstVisibleItemIndex)
+        }
+    }
+
+    // After prepend, restore scroll so the same content stays in view.
+    LaunchedEffect(prependedCount) {
+        if (prependedCount > 0) {
+            val saved = scrollRestoreFirstVisibleIndex ?: 1
+            val targetIndex = prependedCount + maxOf(0, saved - 1)
+            kotlinx.coroutines.delay(1)
+            scrollState.scrollToItem(targetIndex, 0)
+            viewModel.clearPrependedCount()
+        }
+    }
+
     LazyColumn(
         modifier = modifier
             .fillMaxWidth()
@@ -435,13 +475,17 @@ private fun PopupMessageList(
         state = scrollState,
         contentPadding = PaddingValues(bottom = 8.dp)
     ) {
-        // Chat messages
-        items(messages) { message ->
+        if (isLoadingMore) {
+            item(key = "loading_more") {
+                Box(Modifier.fillMaxWidth().padding(8.dp), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(Modifier.size(24.dp))
+                }
+            }
+        }
+        items(messages, key = { it.id }) { message ->
             PopupChatMessageItem(message = message)
             Spacer(modifier = Modifier.height(8.dp))
         }
-
-        // Loading indicator
         if (isLoading) {
             item {
                 PopupLoadingIndicator()

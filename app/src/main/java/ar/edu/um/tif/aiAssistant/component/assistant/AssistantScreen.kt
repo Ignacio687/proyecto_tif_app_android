@@ -19,7 +19,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Send
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.livedata.observeAsState
@@ -117,13 +117,6 @@ fun AssistantScreen(
         }
     }
 
-    // Single permission launcher (for requesting one permission at a time)
-    val singlePermissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission()
-    ) { isGranted ->
-        // This launcher is used for specific permissions when needed
-    }
-
     // Request essential permissions on initial composition if not already granted
     LaunchedEffect(Unit) {
         if (!hasEssentialPermissions) {
@@ -152,34 +145,49 @@ fun AssistantScreen(
 
     // Voice Assistant Components - Only initialized when permission is granted
     val aimyboxWidgets = if (hasEssentialPermissions) {
-        viewModel.widgets?.observeAsState(emptyList())?.value ?: emptyList()
+        viewModel.widgets.observeAsState(emptyList()).value
     } else {
         emptyList()
     }
 
     val aimyboxState = if (hasEssentialPermissions) {
-        viewModel.aimyboxState?.observeAsState()?.value
+        viewModel.aimyboxState.observeAsState().value
     } else {
         null
     }
 
     val isListening = aimyboxState != null && aimyboxState.toString().contains("LISTENING")
 
-    // Convert AimyBox widgets to UI widgets
+    // Only process NEW widgets so we don't re-add previous responses and patch replace works.
+    // Caveats: if the composable is recreated, lastProcessedWidgetCount resets (may re-process);
+    // if the widget list shrinks we reset so we don't skip after a clear.
+    var lastProcessedWidgetCount by remember { mutableStateOf(0) }
+    LaunchedEffect(aimyboxWidgets) {
+        val currentSize = aimyboxWidgets.size
+        if (currentSize < lastProcessedWidgetCount) {
+            lastProcessedWidgetCount = currentSize
+        }
+        for (i in lastProcessedWidgetCount until currentSize) {
+            val widget = aimyboxWidgets[i]
+            when (widget::class.simpleName) {
+                "ResponseWidget" -> {
+                    val text = widget.javaClass.getMethod("getText").invoke(widget) as String
+                    if (text.isNotBlank()) viewModel.addVoiceResponseMessage(text)
+                }
+                "RequestWidget" -> {
+                    val text = widget.javaClass.getMethod("getText").invoke(widget) as String
+                    viewModel.addVoiceRequestMessage(text)
+                }
+            }
+        }
+        lastProcessedWidgetCount = currentSize
+    }
+
+    // Convert AimyBox widgets to UI widgets (for display only; chat messages added above)
     val uiWidgets = remember(aimyboxWidgets) {
         aimyboxWidgets.mapNotNull {
             when (it::class.simpleName) {
-                "ResponseWidget" -> {
-                    val text = it.javaClass.getMethod("getText").invoke(it) as String
-                    viewModel.addVoiceResponseMessage(text)
-                    null // Don't create a widget
-                }
-                "RequestWidget" -> {
-                    val text = it.javaClass.getMethod("getText").invoke(it) as String
-                    // Add the user request to chat messages directly
-                    viewModel.addVoiceRequestMessage(text)
-                    null // Don't create a widget
-                }
+                "ResponseWidget", "RequestWidget" -> null // Already added to chat
                 "ButtonsWidget" -> {
                     val buttons = it.javaClass.getMethod("getButtons").invoke(it) as List<*>
                     AssistantUiButtons(
@@ -299,7 +307,12 @@ private fun AssistantContent(
             uiWidgets = uiWidgets,
             isLoading = uiState.isLoading,
             errorMessage = uiState.errorMessage,
-            scrollState = scrollState
+            scrollState = scrollState,
+            hasMorePages = uiState.hasMorePages,
+            isLoadingMore = uiState.isLoadingMore,
+            prependedCount = uiState.prependedCount,
+            scrollRestoreFirstVisibleIndex = uiState.scrollRestoreFirstVisibleIndex,
+            viewModel = viewModel
         )
     }
 }
@@ -310,8 +323,31 @@ private fun MessageList(
     uiWidgets: List<AssistantUiWidget>,
     isLoading: Boolean,
     errorMessage: String?,
-    scrollState: androidx.compose.foundation.lazy.LazyListState
+    scrollState: androidx.compose.foundation.lazy.LazyListState,
+    hasMorePages: Boolean,
+    isLoadingMore: Boolean,
+    prependedCount: Int,
+    scrollRestoreFirstVisibleIndex: Int?,
+    viewModel: AssistantViewModel
 ) {
+    // When user scrolls to top, load next page (older conversations)
+    LaunchedEffect(scrollState.firstVisibleItemIndex, scrollState.firstVisibleItemScrollOffset) {
+        if (scrollState.firstVisibleItemIndex <= 1 && hasMorePages && !isLoadingMore && !isLoading && messages.isNotEmpty()) {
+            viewModel.loadMoreConversationHistory(scrollState.firstVisibleItemIndex)
+        }
+    }
+
+    // After prepend, restore scroll so the same content stays in view (index 0/1 = first message → prependedCount).
+    LaunchedEffect(prependedCount) {
+        if (prependedCount > 0) {
+            val saved = scrollRestoreFirstVisibleIndex ?: 1
+            val targetIndex = prependedCount + maxOf(0, saved - 1)
+            kotlinx.coroutines.delay(1)
+            scrollState.scrollToItem(targetIndex, 0)
+            viewModel.clearPrependedCount()
+        }
+    }
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -321,11 +357,16 @@ private fun MessageList(
                 .fillMaxSize()
                 .padding(horizontal = 16.dp),
             state = scrollState,
-            contentPadding = PaddingValues(top = 8.dp, bottom = 72.dp) // Increased bottom padding for better spacing
+            contentPadding = PaddingValues(top = 8.dp, bottom = 72.dp)
         ) {
-            // Chat messages - Display in the same order as they come from the server
-            // Server sends index 0 = most recent, so we'll display them in that order
-            items(messages) { message ->
+            if (isLoadingMore) {
+                item(key = "loading_more") {
+                    Box(Modifier.fillMaxWidth().padding(8.dp), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(Modifier.size(24.dp))
+                    }
+                }
+            }
+            items(messages, key = { it.id }) { message ->
                 ChatMessageItem(message = message)
                 Spacer(modifier = Modifier.height(8.dp))
             }
@@ -463,7 +504,7 @@ private fun AssistantInputBar(
                 enabled = !isLoading && userInput.isNotBlank()
             ) {
                 Icon(
-                    imageVector = Icons.Default.Send,
+                    imageVector = Icons.AutoMirrored.Filled.Send,
                     contentDescription = "Enviar",
                     tint = if (!isLoading && userInput.isNotBlank())
                         MaterialTheme.colorScheme.primary
@@ -695,7 +736,6 @@ private fun ChatMessageItem(message: ChatMessage) {
         MaterialTheme.colorScheme.onSecondaryContainer
 
     val alignment = if (message.isFromUser) Arrangement.End else Arrangement.Start
-    val textAlignment = if (message.isFromUser) Alignment.End else Alignment.Start
 
     // Format timestamp
     val formattedTime = remember(message.timestamp) {
